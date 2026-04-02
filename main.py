@@ -9,6 +9,43 @@ import streamlit as st
 # ── Page config (MUST be first Streamlit call) ─────────────────────────
 st.set_page_config(page_title="Kalimi Manager", page_icon="👙", layout="wide")
 
+# ── Authentication Gatekeeper ───────────────────────────────────────────
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+def check_password():
+    """Returns True if the user had the correct password."""
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == st.secrets.get("app_password", "admin"):
+            st.session_state["authenticated"] = True
+            del st.session_state["password"]  # don't store password
+        else:
+            st.session_state["authenticated"] = False
+
+    if not st.session_state["authenticated"]:
+        # First-time login UI
+        col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
+        with col_l2:
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            try:
+                st.image("photos/logo.png", width=250)
+            except:
+                st.title("👙 Kalimi Manager")
+            
+            st.markdown("### התחברי למערכת")
+            st.text_input(
+                "סיסמה", type="password", on_change=password_entered, key="password"
+            )
+            if "password" in st.session_state and not st.session_state["authenticated"]:
+                st.error("😕 הסיסמה אינה נכונה. נסי שוב.")
+            
+            st.info("💡 טיפ: הסיסמה מוגדרת בהגדרות המערכת (Secrets).")
+            st.stop()
+
+# Trigger authentication
+check_password()
+
 # ── Global CSS ──────────────────────────────────────────────────────────
 st.markdown(
     """
