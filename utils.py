@@ -28,7 +28,17 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    creds = Credentials.from_service_account_file("google_credentials.json", scopes=scopes)
+    
+    # Try Streamlit Secrets first (for Cloud deployment)
+    if "gcp_service_account" in st.secrets:
+        creds = Credentials.from_service_account_info(
+            dict(st.secrets["gcp_service_account"]), 
+            scopes=scopes
+        )
+    else:
+        # Fallback to local file (for local development)
+        creds = Credentials.from_service_account_file("google_credentials.json", scopes=scopes)
+        
     return gspread.authorize(creds)
 
 
