@@ -15,9 +15,14 @@ if "authenticated" not in st.session_state:
 
 def check_password():
     """Returns True if the user had the correct password."""
+    # Ensure the secret exists to avoid KeyError
+    if "app_password" not in st.secrets:
+        st.error("⚠️ שגיאה: המפתח 'app_password' לא מוגדר ב-Secrets של האפליקציה. אנא הגדירי אותו בהגדרות ה-Cloud או ב-secrets.toml המקומי.")
+        st.stop()
+
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if st.session_state["password"] == st.secrets["app_password"]:
+        if st.session_state["password"] == st.secrets.get("app_password"):
             st.session_state["authenticated"] = True
             del st.session_state["password"]  # don't store password
         else:
