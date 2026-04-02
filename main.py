@@ -17,33 +17,50 @@ def check_password():
     """Returns True if the user had the correct password."""
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if st.session_state["password"] == st.secrets.get("app_password", "admin"):
+        if st.session_state["password"] == st.secrets["app_password"]:
             st.session_state["authenticated"] = True
             del st.session_state["password"]  # don't store password
         else:
             st.session_state["authenticated"] = False
 
     if not st.session_state["authenticated"]:
-        # First-time login UI
-        col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
-        with col_l2:
+        # Centered Login Card UI
+        _, col_mid, _ = st.columns([1, 1.5, 1])
+        with col_mid:
             st.markdown("<br><br>", unsafe_allow_html=True)
-            try:
-                st.image("photos/logo.png", width=250)
-            except:
-                st.title("👙 Kalimi Manager")
             
-            st.markdown("### התחברי למערכת")
-            st.text_input(
-                "סיסמה", type="password", on_change=password_entered, key="password"
-            )
-            if "password" in st.session_state and not st.session_state["authenticated"]:
-                st.error("😕 הסיסמה אינה נכונה. נסי שוב.")
+            # Login Card Container
+            with st.container(border=True):
+                # Branding
+                try:
+                    st.image("photos/logo.png", use_container_width=True)
+                except:
+                    st.markdown("<h1 style='text-align: center; color: #6366f1;'>👙 Kalimi Manager</h1>", unsafe_allow_html=True)
+                
+                st.markdown("<h4 style='text-align: center; margin-bottom: 1.5rem;'>התחברי למערכת הניהול</h4>", unsafe_allow_html=True)
+                
+                # Password Input
+                st.text_input(
+                    "סיסמת גישה", 
+                    type="password", 
+                    on_change=password_entered, 
+                    key="password",
+                    placeholder="הקלידי סיסמה..."
+                )
+                
+                # Manual Login Button
+                if st.button("🚀 כניסה למערכת", use_container_width=True, type="primary"):
+                    password_entered()
+                    if st.session_state["authenticated"]:
+                        st.rerun()
+                
+                if "password" in st.session_state and not st.session_state["authenticated"]:
+                    st.error("❌ הסיסמה אינה נכונה. נסי שוב.")
             
-            st.info("💡 טיפ: הסיסמה מוגדרת בהגדרות המערכת (Secrets).")
+            st.markdown("<p style='text-align: center; font-size: 0.8rem; color: #9ca3af; margin-top: 2rem;'>© 2024 Kalimi Swimwear Manager</p>", unsafe_allow_html=True)
             st.stop()
 
-# Trigger authentication
+# Trigger authentication before any other logic
 check_password()
 
 # ── Global CSS ──────────────────────────────────────────────────────────
