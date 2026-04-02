@@ -222,4 +222,4 @@ elif view == "כרטיס_לקוחה":
 elif view == "פיננסי":
     from views.financial import render_financial
     render_financial()
-st.markdown("<br><br><br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
