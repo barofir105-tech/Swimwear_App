@@ -241,6 +241,9 @@ def render_customer_card():
                     cols = ["תשלום", "סטטוס", "צריכת בד 2", "בד 2", "צריכת בד", "בד", "התאמות", "גזרת תחתון", "גזרת עליון", "תחתון", "עליון", "מחיר", "פריט", "תאריך מסירה", "תאריך הזמנה"]
                     cols = [c for c in cols if c in display_cust_orders.columns]
                     
+                    # השארת העמודות המבוקשות בלבד ומניעת הצגת עמודות מיותרות (כמו שם, טלפון, סוג בגד ים וכו')
+                    display_cust_orders = display_cust_orders[cols]
+
                     # Migrate old values → bare emoji only
                     if "תשלום" in display_cust_orders.columns:
                         display_cust_orders["תשלום"] = (
