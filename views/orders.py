@@ -304,7 +304,8 @@ def render_orders():
                 order_row_dict = {
                     "Order ID": order_id, "Order Date": order_date_str, "Delivery Date": delivery_date_str, 
                     "Phone Number": customer_phone, "Customer Name": customer_name, "Item": final_item, 
-                    "Top Size": top_size, "Bottom Size": bottom_size, "Custom Size": custom_size, 
+                    "Top Size": top_size, "Bottom Size": bottom_size, 
+                    "Custom Size": order_notes if swimsuit_type == "ביקיני" else custom_size, 
                     "Top Cut": top_cut if swimsuit_type == "ביקיני" else "",
                     "Bottom Cut": bottom_cut if swimsuit_type == "ביקיני" else "",
                     "Fabric": sel_fabric, "Fabric Usage": float(fabric_usage),
