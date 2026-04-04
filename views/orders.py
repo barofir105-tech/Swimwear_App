@@ -74,30 +74,22 @@ def render_orders():
                 )
                 bikini_pattern_options = bikini_patterns if bikini_patterns else ["אין גזרות מתאימות"]
                 size_options = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "ללא (לא הוזמן)"]
-                # --- גזרות ביקיני ומידות ---
-                row_b1, row_b2, row_b3 = st.columns([1.3, 1, 1])
-                with row_b1:
-                    pattern_name = st.selectbox("גזרה*", bikini_pattern_options)
-                with row_b2:
+                # Row 1: Top Cut and Size
+                row_t1, row_t2 = st.columns([1, 1])
+                with row_t1:
+                    top_cut = st.selectbox("גזרת עליון", bikini_pattern_options, key="top_cut_bih")
+                with row_t2:
                     top_size = st.selectbox("מידת עליון*", size_options, index=2)
-                with row_b3:
+                
+                # Row 2: Bottom Cut and Size
+                row_b1, row_b2 = st.columns([1, 1])
+                with row_b1:
+                    bottom_cut = st.selectbox("גזרת תחתון", bikini_pattern_options, key="bottom_cut_bih")
+                with row_b2:
                     bottom_size = st.selectbox("מידת תחתון*", size_options, index=2)
 
-                # --- גזרות עליון ותחתון דינמיות ---
-                # מפה שתתווסף ידנית על ידי המשתמש בהמשך
-                BIKINI_CUTS_MAP = {
-                    # דוגמה: "שם הגזרה": {"tops": ["גזרה 1", "גזרה 2"], "bottoms": ["גזרה 3"]}
-                }
-                
-                pattern_cuts = BIKINI_CUTS_MAP.get(pattern_name, {"tops": [], "bottoms": []})
-                top_cut_options = pattern_cuts["tops"] if pattern_cuts["tops"] else ["ללא גזרות"]
-                bottom_cut_options = pattern_cuts["bottoms"] if pattern_cuts["bottoms"] else ["ללא גזרות"]
-                
-                row_c1, row_c2 = st.columns(2)
-                with row_c1:
-                    top_cut = st.selectbox("גזרת עליון", top_cut_options)
-                with row_c2:
-                    bottom_cut = st.selectbox("גזרת תחתון", bottom_cut_options)
+                # pattern_name for bikini will be saved as "ביקיני" for consistency
+                pattern_name = "ביקיני"
 
             # --- בחירת בדים חזותית ---
             fabric_options = inventory_df["Fabric Name"].astype(str).tolist() if not inventory_df.empty else []
@@ -239,7 +231,7 @@ def render_orders():
                         st.error("אין כרגע גזרות מסוג בגד ים שלם. הוסיפי גזרה בלשונית גזרות."); st.stop()
                     final_item = item_name.strip() if str(item_name).strip() else "One-piece"
                 else:
-                    if pattern_name == "אין גזרות מתאימות":
+                    if bikini_pattern_options == ["אין גזרות מתאימות"]:
                         st.error("אין כרגע גזרות מסוג ביקיני. הוסיפי גזרה בלשונית גזרות."); st.stop()
                     top_not_ordered = top_size == "ללא (לא הוזמן)"
                     bottom_not_ordered = bottom_size == "ללא (לא הוזמן)"
