@@ -139,17 +139,17 @@ def render_financial():
                     d_date = str(r.get("Delivery Date") or "").strip()
                     o_date = str(r.get("Order Date") or "").strip()
                     
-                    # 1. Payment Date (Best)
-                    if p_date:
-                        parsed = pd.to_datetime(p_date, format="%d/%m/%Y", errors="coerce")
-                        if pd.notnull(parsed): return parsed.date()
-                    
-                    # 2. Delivery Date (Second Best)
+                    # 1. Delivery Date (Priority for manual edits)
                     if d_date:
                         parsed = pd.to_datetime(d_date, format="%d/%m/%Y", errors="coerce")
                         if pd.notnull(parsed): return parsed.date()
+
+                    # 2. Payment Date (Fallback)
+                    if p_date:
+                        parsed = pd.to_datetime(p_date, format="%d/%m/%Y", errors="coerce")
+                        if pd.notnull(parsed): return parsed.date()
                         
-                    # 3. Order Date (Fallback)
+                    # 3. Order Date (Last Resort)
                     parsed = pd.to_datetime(o_date, format="%d/%m/%Y", errors="coerce")
                     return parsed.date() if pd.notnull(parsed) else None
 
