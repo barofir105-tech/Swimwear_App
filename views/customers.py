@@ -228,23 +228,26 @@ def render_customer_card():
                         customer_orders["Price"] = pd.to_numeric(customer_orders["Price"], errors="coerce").fillna(0)
 
                     display_cust_orders = customer_orders.rename(columns={
-                        "Order ID": "מ\"ה", "Order Date": "הזמנה", "Delivery Date": "מסירה",
+                        "Order ID": "מ\"ה", "Order Date": "תאריך הזמנה", "Delivery Date": "תאריך מסירה",
                         "Status": "סטטוס", "Payment Status": "תשלום", "Price": "מחיר",
                         "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
-                        "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')",
-                        "Payment Date": "תאריך תשלום"
+                        "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", 
+                        "Fabric": "בד", "Fabric Usage": "צריכת בד",
+                        "Fabric 2": "בד 2", "Fabric Usage 2": "צריכת בד 2"
                     })
 
-                    # צמצום והגדרת עמודות כדי למנוע גלילה הצידה - סדר RTL
-                    cols = ["תשלום", "מחיר", "סטטוס", "מ\"ה", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "מסירה", "הזמנה", "פריט"]
+                    # הגדרת עמודות למניעת גלילה - סדר RTL קפדני לפי בקשת המשתמש
+                    # סדר ויזואלי מימין לשמאל: תאריך הזמנה (1) ... תשלום (אחרון)
+                    cols = ["תשלום", "סטטוס", "צריכת בד 2", "בד 2", "צריכת בד", "בד", "התאמות", "גזרת תחתון", "גזרת עליון", "תחתון", "עליון", "מחיר", "פריט", "תאריך מסירה", "תאריך הזמנה"]
                     cols = [c for c in cols if c in display_cust_orders.columns]
+                    
                     # Migrate old values → bare emoji only
                     if "תשלום" in display_cust_orders.columns:
                         display_cust_orders["תשלום"] = (
                             display_cust_orders["תשלום"].astype(str)
                             .str.replace("🟡", "🧡", regex=False)
                             .str.replace("🟢", "💚", regex=False)
-                            .str.split(" ").str[0]  # שמור רק את האמוג'י
+                            .str.split(" ").str[0]
                         )
                     if "סטטוס" in display_cust_orders.columns:
                         display_cust_orders["סטטוס"] = display_cust_orders["סטטוס"].astype(str) \
@@ -253,8 +256,8 @@ def render_customer_card():
                     config = {
                         "מ\"ה": st.column_config.TextColumn("מ\"ה", disabled=True, width="small"),
                         "פריט": st.column_config.TextColumn("פריט"),
-                        "הזמנה": st.column_config.DateColumn("הזמנה", format="DD/MM/YYYY", width="small"),
-                        "מסירה": st.column_config.DateColumn("מסירה", format="DD/MM/YYYY", width="small"),
+                        "תאריך הזמנה": st.column_config.DateColumn("תאריך הזמנה", format="DD/MM/YYYY", width="small"),
+                        "תאריך מסירה": st.column_config.DateColumn("תאריך מסירה", format="DD/MM/YYYY", width="small"),
                         "התאמות": st.column_config.TextColumn("התאמות", width="small"),
                         "סטטוס": st.column_config.SelectboxColumn("סטטוס", options=["🆕 התקבלה (ממתינה להכנה)", "✂️ בגזירה/תפירה", "📦 מוכנה לאיסוף/משלוח", "✅ נמסרה ללקוחה"], width="medium"),
                         "תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
@@ -262,12 +265,20 @@ def render_customer_card():
                         "עליון": st.column_config.TextColumn("עליון", width="small"),
                         "תחתון": st.column_config.TextColumn("תחתון", width="small"),
                         "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
-                        "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small")
+                        "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small"),
+                        "בד": st.column_config.TextColumn("בד", width="small"),
+                        "צריכת בד": st.column_config.NumberColumn("צריכת בד", width="small"),
+                        "בד 2": st.column_config.TextColumn("בד 2", width="small"),
+                        "צריכת בד 2": st.column_config.NumberColumn("צריכת בד 2", width="small")
                     }
 
                     active_mask_cust = display_cust_orders["סטטוס"] != "✅ נמסרה ללקוחה"
                     active_cust_orders = display_cust_orders[active_mask_cust].copy()
                     completed_cust_orders = display_cust_orders[~active_mask_cust].copy()
+
+                    # Initialize to avoid UnboundLocalError
+                    edited_active_cust = active_cust_orders.copy()
+                    edited_completed_cust = completed_cust_orders.copy()
 
                     st.markdown("#### 📋 הזמנות פעילות")
                     if not active_cust_orders.empty:
@@ -286,14 +297,16 @@ def render_customer_card():
                         if st.button("💾 שמרי שינויים בהזמנות הלקוחה", type="primary", use_container_width=True):
                             with st.spinner("מעדכן מסד נתונים..."):
                                 save_orders = pd.concat([edited_active_cust, edited_completed_cust])
-                                save_orders["תאריך הזמנה"] = save_orders["תאריך הזמנה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
-                                save_orders["תאריך אספקה"] = save_orders["תאריך אספקה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
+                                if "תאריך הזמנה" in save_orders.columns:
+                                    save_orders["תאריך הזמנה"] = save_orders["תאריך הזמנה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
+                                if "תאריך מסירה" in save_orders.columns:
+                                    save_orders["תאריך מסירה"] = save_orders["תאריך מסירה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
 
                                 save_orders = save_orders.rename(columns={
-                                    "מ\"ה": "Order ID", "הזמנה": "Order Date", "מסירה": "Delivery Date",
+                                    "מ\"ה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך מסירה": "Delivery Date",
                                     "פריט": "Item", "סטטוס": "Status", "מחיר": "Price", "תשלום": "Payment Status",
-                                    "תאריך תשלום": "Payment Date",
-                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')" : "Fabric Usage"
+                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size",
+                                    "בד": "Fabric", "צריכת בד": "Fabric Usage", "בד 2": "Fabric 2", "צריכת בד 2": "Fabric Usage 2"
                                 })
 
                                 orders_indexed = orders_df.set_index("Order ID")
