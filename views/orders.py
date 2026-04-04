@@ -500,7 +500,11 @@ def render_orders():
                         if st.button("מחקי מסומנות 🗑️", type="primary", use_container_width=True):
                             with st.spinner("מעדכן מסד נתונים..."):
                                 ids_to_delete = orders_to_delete["מ\"ה"].tolist()
-                                # Identify internal items for inventory return
+                                # Safety check for missing column in old data
+                                if "Bypass Inventory" not in orders_df.columns:
+                                    orders_df["Bypass Inventory"] = False
+                                
+                                st.session_state.orders_df = orders_df.copy() # Refresh with potential new col
                                 deleted_full_rows = orders_df[orders_df["Order ID"].isin(ids_to_delete)]
                                 
                                 # Return fabric to stock if it wasn't bypassed
@@ -568,7 +572,8 @@ def render_orders():
                                     "מ\"ה": "Order ID", "הזמנה": "Order Date", "מסירה": "Delivery Date",
                                     "שם לקוחה": "Customer Name", "פריט": "Item", "סטטוס": "Status", "מחיר": "Price", "תשלום": "Payment Status",
                                     "תאריך תשלום": "Payment Date",
-                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
+                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage",
+                                    "Bypass Inventory": "Bypass Inventory"
                                 })
 
                                 orders_indexed = orders_df.set_index("Order ID")

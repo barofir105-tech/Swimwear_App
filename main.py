@@ -142,6 +142,10 @@ if "data_loaded" not in st.session_state or not st.session_state.data_loaded:
     with st.spinner("טוענת נתונים מהענן..."):
         st.session_state.customers_df, st.session_state.customers_sheet = fetch_customers_from_cloud(spreadsheet)
         st.session_state.orders_df,    st.session_state.orders_sheet    = fetch_orders_from_cloud(spreadsheet)
+        # Ensure new column exists for older spreadsheets
+        if "Bypass Inventory" not in st.session_state.orders_df.columns:
+            st.session_state.orders_df["Bypass Inventory"] = False
+        
         st.session_state.inventory_df, st.session_state.inventory_sheet = fetch_inventory_from_cloud(spreadsheet)
         st.session_state.patterns_df,  st.session_state.patterns_sheet  = fetch_patterns_from_cloud(spreadsheet)
         st.session_state.finance_data, st.session_state.finance_sheet   = fetch_finance_from_cloud(spreadsheet)
