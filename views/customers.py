@@ -224,13 +224,12 @@ def render_customer_card():
                         customer_orders["Delivery Date"] = pd.to_datetime(customer_orders["Delivery Date"], format="%d/%m/%Y", errors="coerce").dt.date
 
                     display_cust_orders = customer_orders.rename(columns={
-                        "Order ID": "מספר הזמנה", "Order Date": "תאריך הזמנה", "Delivery Date": "תאריך אספקה",
-                        "Item": "פריט", "Status": "סטטוס", "Payment Status": "סטטוס תשלום",
-                        "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", "Fabric Usage": "צריכת בד (מ')"
+                        "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
+                        "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')"
                     })
 
                     # צמצום והגדרת עמודות כדי למנוע גלילה הצידה
-                    cols = ["מחיר", "סטטוס תשלום", "סטטוס", "מספר הזמנה", "התאמות", "תחתון", "עליון", "תאריך אספקה", "תאריך הזמנה", "פריט"]
+                    cols = ["מחיר", "סטטוס תשלום", "סטטוס", "מספר הזמנה", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "תאריך אספקה", "תאריך הזמנה", "פריט"]
                     cols = [c for c in cols if c in display_cust_orders.columns]
                     # Migrate old values → bare emoji only
                     if "סטטוס תשלום" in display_cust_orders.columns:
@@ -254,7 +253,9 @@ def render_customer_card():
                         "סטטוס תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
                         "מחיר": st.column_config.NumberColumn("מחיר", format="₪%d", width="small"),
                         "עליון": st.column_config.TextColumn("עליון", width="small"),
-                        "תחתון": st.column_config.TextColumn("תחתון", width="small")
+                        "תחתון": st.column_config.TextColumn("תחתון", width="small"),
+                        "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
+                        "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small")
                     }
 
                     active_mask_cust = display_cust_orders["סטטוס"] != "✅ נמסרה ללקוחה"
@@ -284,7 +285,7 @@ def render_customer_card():
                                 save_orders = save_orders.rename(columns={
                                     "מספר הזמנה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך אספקה": "Delivery Date",
                                     "פריט": "Item", "סטטוס": "Status", "סטטוס תשלום": "Payment Status",
-                                    "עליון": "Top Size", "תחתון": "Bottom Size", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
+                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
                                 })
 
                                 orders_indexed = orders_df.set_index("Order ID")
@@ -292,12 +293,12 @@ def render_customer_card():
                                 orders_indexed.update(save_indexed)
                                 orders_indexed.reset_index(inplace=True)
 
-                                for col in ["Payment Date", "Swimsuit Type", "Pattern", "Order Notes", "Fabric 2", "Fabric Usage 2"]:
+                                for col in ["Payment Date", "Swimsuit Type", "Pattern", "Top Cut", "Bottom Cut", "Order Notes", "Fabric 2", "Fabric Usage 2"]:
                                     if col not in orders_indexed.columns:
                                         orders_indexed[col] = ""
                                 final_save = orders_indexed[[
                                     "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
-                                    "Top Size", "Bottom Size", "Custom Size", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
+                                    "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                                     "Swimsuit Type", "Pattern", "Order Notes",
                                     "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
                                 ]]

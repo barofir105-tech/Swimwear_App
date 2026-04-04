@@ -80,7 +80,7 @@ def fetch_customers_from_cloud(spreadsheet):
 def fetch_orders_from_cloud(spreadsheet):
     _COLS = [
         "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
-        "Top Size", "Bottom Size", "Custom Size", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
+        "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
         "Swimsuit Type", "Pattern", "Order Notes", "Status", "Payment Status", "Supply Type", "Price", "Payment Date",
     ]
     try:
@@ -90,7 +90,7 @@ def fetch_orders_from_cloud(spreadsheet):
             df["Phone Number"] = df["Phone Number"].astype(str).apply(
                 lambda x: "0" + x if len(x) == 9 and not x.startswith("0") else x
             )
-            for col in ["Payment Date", "Swimsuit Type", "Pattern", "Order Notes", "Fabric 2", "Fabric Usage 2"]:
+            for col in ["Payment Date", "Swimsuit Type", "Pattern", "Top Cut", "Bottom Cut", "Order Notes", "Fabric 2", "Fabric Usage 2"]:
                 if col not in df.columns:
                     df[col] = ""
             # One-time migration for old ORD-XXXX IDs

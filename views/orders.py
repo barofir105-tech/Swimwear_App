@@ -74,6 +74,7 @@ def render_orders():
                 )
                 bikini_pattern_options = bikini_patterns if bikini_patterns else ["אין גזרות מתאימות"]
                 size_options = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "ללא (לא הוזמן)"]
+                # --- גזרות ביקיני ומידות ---
                 row_b1, row_b2, row_b3 = st.columns([1.3, 1, 1])
                 with row_b1:
                     pattern_name = st.selectbox("גזרה*", bikini_pattern_options)
@@ -81,6 +82,22 @@ def render_orders():
                     top_size = st.selectbox("מידת עליון*", size_options, index=2)
                 with row_b3:
                     bottom_size = st.selectbox("מידת תחתון*", size_options, index=2)
+
+                # --- גזרות עליון ותחתון דינמיות ---
+                # מפה שתתווסף ידנית על ידי המשתמש בהמשך
+                BIKINI_CUTS_MAP = {
+                    # דוגמה: "שם הגזרה": {"tops": ["גזרה 1", "גזרה 2"], "bottoms": ["גזרה 3"]}
+                }
+                
+                pattern_cuts = BIKINI_CUTS_MAP.get(pattern_name, {"tops": [], "bottoms": []})
+                top_cut_options = pattern_cuts["tops"] if pattern_cuts["tops"] else ["ללא גזרות"]
+                bottom_cut_options = pattern_cuts["bottoms"] if pattern_cuts["bottoms"] else ["ללא גזרות"]
+                
+                row_c1, row_c2 = st.columns(2)
+                with row_c1:
+                    top_cut = st.selectbox("גזרת עליון", top_cut_options)
+                with row_c2:
+                    bottom_cut = st.selectbox("גזרת תחתון", bottom_cut_options)
 
             # --- בחירת בדים חזותית ---
             fabric_options = inventory_df["Fabric Name"].astype(str).tolist() if not inventory_df.empty else []
@@ -288,6 +305,8 @@ def render_orders():
                     "Order ID": order_id, "Order Date": order_date_str, "Delivery Date": delivery_date_str, 
                     "Phone Number": customer_phone, "Customer Name": customer_name, "Item": final_item, 
                     "Top Size": top_size, "Bottom Size": bottom_size, "Custom Size": custom_size, 
+                    "Top Cut": top_cut if swimsuit_type == "ביקיני" else "",
+                    "Bottom Cut": bottom_cut if swimsuit_type == "ביקיני" else "",
                     "Fabric": sel_fabric, "Fabric Usage": float(fabric_usage),
                     "Fabric 2": sel_fabric_2 if add_second_fabric else "",
                     "Fabric Usage 2": float(fabric_usage_2) if add_second_fabric else 0.0,
@@ -314,13 +333,14 @@ def render_orders():
                     if len(st.session_state.orders_df) == 1: 
                         orders_sheet.append_row([
                             "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
-                            "Top Size", "Bottom Size", "Custom Size", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
+                            "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                             "Swimsuit Type", "Pattern", "Order Notes", "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
                         ])
                     orders_sheet.append_row([
                         order_row_dict["Order ID"], order_row_dict["Order Date"], order_row_dict["Delivery Date"],
                         order_row_dict["Phone Number"], order_row_dict["Customer Name"], order_row_dict["Item"],
                         order_row_dict["Top Size"], order_row_dict["Bottom Size"], order_row_dict["Custom Size"],
+                        order_row_dict["Top Cut"], order_row_dict["Bottom Cut"],
                         order_row_dict["Fabric"], order_row_dict["Fabric Usage"], order_row_dict["Fabric 2"], order_row_dict["Fabric Usage 2"],
                         order_row_dict["Swimsuit Type"], order_row_dict["Pattern"], order_row_dict["Order Notes"],
                         order_row_dict["Status"], order_row_dict["Payment Status"], order_row_dict["Supply Type"],
@@ -380,13 +400,14 @@ def render_orders():
             display_orders = display_orders.rename(columns={
                 "Order ID": "מספר הזמנה", "Order Date": "תאריך הזמנה", "Delivery Date": "תאריך אספקה",
                 "Customer Name": "שם לקוחה", "Item": "פריט", "Status": "סטטוס", "Payment Status": "סטטוס תשלום",
-                "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", "Fabric Usage": "צריכת בד (מ')"
+                "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
+                "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')"
             })
 
             # צמצום עמודות כדי למנוע גלילה אופקית, הצגת המידע החשוב בלבד בראייה רחבה
             if "מספר הזמנה" in display_orders.columns:
                 display_orders = display_orders.sort_values(by="מספר הזמנה", key=lambda x: pd.to_numeric(x, errors="coerce"), ascending=False)
-            cols = ["מחיר", "סטטוס תשלום", "סטטוס", "מספר הזמנה", "התאמות", "תחתון", "עליון", "תאריך אספקה", "תאריך הזמנה", "פריט", "שם לקוחה"]
+            cols = ["מחיר", "סטטוס תשלום", "סטטוס", "מספר הזמנה", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "תאריך אספקה", "תאריך הזמנה", "פריט", "שם לקוחה"]
             cols = [c for c in cols if c in display_orders.columns]
 
             if st.session_state.delete_mode_orders:
@@ -418,7 +439,9 @@ def render_orders():
                 "סטטוס תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
                 "מחיר": st.column_config.NumberColumn("מחיר", format="₪%d", width="small"),
                 "עליון": st.column_config.TextColumn("עליון", width="small"),
-                "תחתון": st.column_config.TextColumn("תחתון", width="small")
+                "תחתון": st.column_config.TextColumn("תחתון", width="small"),
+                "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
+                "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small")
             }
             if st.session_state.delete_mode_orders:
                 config["בחרי"] = st.column_config.CheckboxColumn("בחרי", default=False)
@@ -470,7 +493,7 @@ def render_orders():
                                 if st.session_state.orders_df.empty:
                                     orders_sheet.update([[
                                         "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
-                                        "Top Size", "Bottom Size", "Custom Size", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
+                                        "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                                         "Swimsuit Type", "Pattern", "Order Notes",
                                         "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
                                     ]])
@@ -491,7 +514,7 @@ def render_orders():
                                 save_orders = save_orders.rename(columns={
                                     "מספר הזמנה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך אספקה": "Delivery Date",
                                     "שם לקוחה": "Customer Name", "פריט": "Item", "סטטוס": "Status", "סטטוס תשלום": "Payment Status",
-                                    "עליון": "Top Size", "תחתון": "Bottom Size", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
+                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
                                 })
 
                                 orders_indexed = orders_df.set_index("Order ID")
@@ -519,12 +542,12 @@ def render_orders():
                                 orders_indexed.update(save_indexed)
                                 orders_indexed.reset_index(inplace=True)
 
-                                for col in ["Payment Date", "Swimsuit Type", "Pattern", "Order Notes", "Fabric 2", "Fabric Usage 2"]:
+                                for col in ["Payment Date", "Swimsuit Type", "Pattern", "Top Cut", "Bottom Cut", "Order Notes", "Fabric 2", "Fabric Usage 2"]:
                                     if col not in orders_indexed.columns:
                                         orders_indexed[col] = ""
                                 final_save = orders_indexed[[
                                     "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
-                                    "Top Size", "Bottom Size", "Custom Size", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
+                                    "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                                     "Swimsuit Type", "Pattern", "Order Notes",
                                     "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
                                 ]]
