@@ -134,11 +134,26 @@ def render_financial():
 
             paid_orders = orders_df[orders_df["Payment Status"].isin(["💚", "🟢"])].copy()
             if not paid_orders.empty:
-                paid_orders["Parsed Date"] = paid_orders.apply(
-                    lambda r: pd.to_datetime(r["Payment Date"], format="%d/%m/%Y", errors="coerce").date() if pd.notnull(r.get("Payment Date")) and str(r.get("Payment Date")).strip() != "" 
-                    else pd.to_datetime(r["Order Date"], format="%d/%m/%Y", errors="coerce").date(),
-                    axis=1
-                )
+                def _get_best_date(r):
+                    p_date = str(r.get("Payment Date") or "").strip()
+                    d_date = str(r.get("Delivery Date") or "").strip()
+                    o_date = str(r.get("Order Date") or "").strip()
+                    
+                    # 1. Payment Date (Best)
+                    if p_date:
+                        parsed = pd.to_datetime(p_date, format="%d/%m/%Y", errors="coerce")
+                        if pd.notnull(parsed): return parsed.date()
+                    
+                    # 2. Delivery Date (Second Best)
+                    if d_date:
+                        parsed = pd.to_datetime(d_date, format="%d/%m/%Y", errors="coerce")
+                        if pd.notnull(parsed): return parsed.date()
+                        
+                    # 3. Order Date (Fallback)
+                    parsed = pd.to_datetime(o_date, format="%d/%m/%Y", errors="coerce")
+                    return parsed.date() if pd.notnull(parsed) else None
+
+                paid_orders["Parsed Date"] = paid_orders.apply(_get_best_date, axis=1)
                 paid_orders = paid_orders.dropna(subset=["Parsed Date"])
 
                 paid_in_range = paid_orders[
