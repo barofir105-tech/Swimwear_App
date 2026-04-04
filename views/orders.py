@@ -325,11 +325,14 @@ def render_orders():
                 # ניכוי צריכת בד בפועל מהמלאי המקומי ומהענן - רק אם לא התעלמנו מהמלאי
                 if not bypass_inventory:
                     updated_inventory = st.session_state.inventory_df.copy()
-                    updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0)
+                    # המרה למספר וטיפול בערכים חסרים - כפייה של float כדי למנוע TypeError
+                    updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
                     for fab_name, req_m in usage_map.items():
                         mask = updated_inventory["Fabric Name"] == fab_name
                         if mask.any():
-                            updated_inventory.loc[mask, "Initial Meters"] = updated_inventory.loc[mask, "Initial Meters"] - req_m
+                            # ביצוע החישוב והשמה חזרה
+                            current_val = float(updated_inventory.loc[mask, "Initial Meters"].values[0])
+                            updated_inventory.loc[mask, "Initial Meters"] = current_val - float(req_m)
                     st.session_state.inventory_df = updated_inventory
                     if inventory_sheet:
                         inventory_sheet.clear()
