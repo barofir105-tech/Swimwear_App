@@ -225,11 +225,12 @@ def render_customer_card():
 
                     display_cust_orders = customer_orders.rename(columns={
                         "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
-                        "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')"
+                        "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')",
+                        "Payment Date": "תאריך תשלום"
                     })
 
                     # צמצום והגדרת עמודות כדי למנוע גלילה הצידה
-                    cols = ["מחיר", "סטטוס תשלום", "סטטוס", "מספר הזמנה", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "תאריך אספקה", "תאריך הזמנה", "פריט"]
+                    cols = ["מספר הזמנה", "סטטוס", "מחיר", "סטטוס תשלום", "תאריך תשלום", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "תאריך אספקה", "תאריך הזמנה", "פריט"]
                     cols = [c for c in cols if c in display_cust_orders.columns]
                     # Migrate old values → bare emoji only
                     if "סטטוס תשלום" in display_cust_orders.columns:
@@ -255,7 +256,8 @@ def render_customer_card():
                         "עליון": st.column_config.TextColumn("עליון", width="small"),
                         "תחתון": st.column_config.TextColumn("תחתון", width="small"),
                         "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
-                        "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small")
+                        "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small"),
+                        "תאריך תשלום": st.column_config.DateColumn("תשלום", format="DD/MM/YYYY", width="small")
                     }
 
                     active_mask_cust = display_cust_orders["סטטוס"] != "✅ נמסרה ללקוחה"
@@ -285,6 +287,7 @@ def render_customer_card():
                                 save_orders = save_orders.rename(columns={
                                     "מספר הזמנה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך אספקה": "Delivery Date",
                                     "פריט": "Item", "סטטוס": "Status", "סטטוס תשלום": "Payment Status",
+                                    "תאריך תשלום": "Payment Date",
                                     "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
                                 })
 

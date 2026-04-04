@@ -213,10 +213,18 @@ def render_orders():
                 '<span style="font-weight:700;color:#be123c;font-size:15px;">💳 סטטוס ותשלום</span></div>',
                 unsafe_allow_html=True)
             st.markdown("**סטטוס ותשלום:**")
-            col_st1, col_st2, col_st3 = st.columns(3)
+            col_st1, col_st2, col_st3, col_st4 = st.columns([1.5, 1, 1, 1.5])
             with col_st1: status = st.selectbox("סטטוס הזמנה", ["🆕 התקבלה (ממתינה להכנה)", "✂️ בגזירה/תפירה", "📦 מוכנה לאיסוף/משלוח", "✅ נמסרה ללקוחה"])
             with col_st2: pay_status = st.selectbox("סטטוס תשלום", ["🔴", "🧡", "💚"])
             with col_st3: supply = st.selectbox("סוג אספקה", ["איסוף עצמי", "משלוח"])
+            
+            form_payment_date_val = ""
+            with col_st4:
+                if pay_status == "💚":
+                    p_date = st.date_input("תאריך תשלום", value=datetime.today())
+                    form_payment_date_val = p_date.strftime("%d/%m/%Y")
+                else:
+                    st.empty()
 
             price = st.number_input("מחיר סופי סך הכל (₪)", min_value=0, value=0, step=10)
 
@@ -306,7 +314,7 @@ def render_orders():
                     "Pattern": pattern_name,
                     "Order Notes": order_notes,
                     "Status": status, "Payment Status": pay_status_emoji, 
-                    "Supply Type": supply, "Price": price, "Payment Date": ""
+                    "Supply Type": supply, "Price": price, "Payment Date": form_payment_date_val
                 }
 
                 new_order_df = pd.DataFrame([order_row_dict])
@@ -393,13 +401,14 @@ def render_orders():
                 "Order ID": "מספר הזמנה", "Order Date": "תאריך הזמנה", "Delivery Date": "תאריך אספקה",
                 "Customer Name": "שם לקוחה", "Item": "פריט", "Status": "סטטוס", "Payment Status": "סטטוס תשלום",
                 "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
-                "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')"
+                "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')",
+                "Payment Date": "תאריך תשלום"
             })
 
             # צמצום עמודות כדי למנוע גלילה אופקית, הצגת המידע החשוב בלבד בראייה רחבה
             if "מספר הזמנה" in display_orders.columns:
                 display_orders = display_orders.sort_values(by="מספר הזמנה", key=lambda x: pd.to_numeric(x, errors="coerce"), ascending=False)
-            cols = ["מחיר", "סטטוס תשלום", "סטטוס", "מספר הזמנה", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "תאריך אספקה", "תאריך הזמנה", "פריט", "שם לקוחה"]
+            cols = ["מספר הזמנה", "סטטוס", "מחיר", "סטטוס תשלום", "תאריך תשלום", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "תאריך אספקה", "תאריך הזמנה", "פריט", "שם לקוחה"]
             cols = [c for c in cols if c in display_orders.columns]
 
             if st.session_state.delete_mode_orders:
@@ -433,7 +442,8 @@ def render_orders():
                 "עליון": st.column_config.TextColumn("עליון", width="small"),
                 "תחתון": st.column_config.TextColumn("תחתון", width="small"),
                 "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
-                "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small")
+                "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small"),
+                "תאריך תשלום": st.column_config.DateColumn("תשלום", format="DD/MM/YYYY", width="small")
             }
             if st.session_state.delete_mode_orders:
                 config["בחרי"] = st.column_config.CheckboxColumn("בחרי", default=False)
@@ -503,33 +513,28 @@ def render_orders():
                                 save_orders["תאריך הזמנה"] = save_orders["תאריך הזמנה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
                                 save_orders["תאריך אספקה"] = save_orders["תאריך אספקה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
 
+                                save_orders["תאריך תשלום"] = save_orders["תאריך תשלום"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
                                 save_orders = save_orders.rename(columns={
                                     "מספר הזמנה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך אספקה": "Delivery Date",
                                     "שם לקוחה": "Customer Name", "פריט": "Item", "סטטוס": "Status", "סטטוס תשלום": "Payment Status",
+                                    "תאריך תשלום": "Payment Date",
                                     "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
                                 })
 
                                 orders_indexed = orders_df.set_index("Order ID")
                                 save_indexed = save_orders.set_index("Order ID")
 
-                                # Dynamic Payment Date calculation
-                                if "Payment Date" not in orders_indexed.columns:
-                                    orders_indexed["Payment Date"] = ""
-                                if "Payment Date" not in save_indexed.columns:
-                                    save_indexed["Payment Date"] = ""
-
                                 today_str = datetime.now().strftime("%d/%m/%Y")
-                                for order_id, row in save_indexed.iterrows():
-                                    if row["Payment Status"] == "🟢":
-                                        old_status = orders_indexed.loc[order_id, "Payment Status"] if order_id in orders_indexed.index else ""
-                                        old_date = orders_indexed.loc[order_id, "Payment Date"] if order_id in orders_indexed.index else ""
+                                for o_id, row in save_indexed.iterrows():
+                                    if row["Payment Status"] == "💚":
+                                        old_status = orders_indexed.loc[o_id, "Payment Status"] if o_id in orders_indexed.index else ""
+                                        current_p_date = str(row.get("Payment Date", "")).strip()
 
-                                        if old_status != "🟢" or pd.isna(old_date) or str(old_date).strip() == "":
-                                            save_indexed.at[order_id, "Payment Date"] = today_str
-                                        else:
-                                            save_indexed.at[order_id, "Payment Date"] = old_date
+                                        # if just became 💚 or is 💚 but empty date, set today
+                                        if (old_status != "💚" or current_p_date == "") and current_p_date == "":
+                                            save_indexed.at[o_id, "Payment Date"] = today_str
                                     else:
-                                        save_indexed.at[order_id, "Payment Date"] = ""
+                                        save_indexed.at[o_id, "Payment Date"] = ""
 
                                 orders_indexed.update(save_indexed)
                                 orders_indexed.reset_index(inplace=True)
