@@ -224,7 +224,7 @@ def render_customer_card():
                         customer_orders["Delivery Date"] = pd.to_datetime(customer_orders["Delivery Date"], format="%d/%m/%Y", errors="coerce").dt.date
 
                     display_cust_orders = customer_orders.rename(columns={
-                        "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
+                        "Price": "מחיר", "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
                         "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')",
                         "Payment Date": "תאריך תשלום"
                     })
@@ -286,9 +286,9 @@ def render_customer_card():
 
                                 save_orders = save_orders.rename(columns={
                                     "מספר הזמנה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך אספקה": "Delivery Date",
-                                    "פריט": "Item", "סטטוס": "Status", "סטטוס תשלום": "Payment Status",
+                                    "פריט": "Item", "סטטוס": "Status", "מחיר": "Price", "סטטוס תשלום": "Payment Status",
                                     "תאריך תשלום": "Payment Date",
-                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
+                                    "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')" : "Fabric Usage"
                                 })
 
                                 orders_indexed = orders_df.set_index("Order ID")
@@ -314,5 +314,3 @@ def render_customer_card():
                     st.info("ללקוחה זו עדיין אין היסטוריית הזמנות במערכת.")
             else:
                 st.info("לא קיימות הזמנות במערכת הכללית.")
-
-

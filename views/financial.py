@@ -132,7 +132,7 @@ def render_financial():
             if "Payment Date" not in orders_df.columns:
                 orders_df["Payment Date"] = orders_df["Order Date"]
 
-            paid_orders = orders_df[orders_df["Payment Status"] == "💚"].copy()
+            paid_orders = orders_df[orders_df["Payment Status"].isin(["💚", "🟢"])].copy()
             if not paid_orders.empty:
                 paid_orders["Parsed Date"] = paid_orders.apply(
                     lambda r: pd.to_datetime(r["Payment Date"], format="%d/%m/%Y", errors="coerce").date() if pd.notnull(r.get("Payment Date")) and str(r.get("Payment Date")).strip() != "" 

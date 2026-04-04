@@ -400,7 +400,7 @@ def render_orders():
             display_orders = display_orders.rename(columns={
                 "Order ID": "מספר הזמנה", "Order Date": "תאריך הזמנה", "Delivery Date": "תאריך אספקה",
                 "Customer Name": "שם לקוחה", "Item": "פריט", "Status": "סטטוס", "Payment Status": "סטטוס תשלום",
-                "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
+                "Price": "מחיר", "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
                 "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')",
                 "Payment Date": "תאריך תשלום"
             })
@@ -408,7 +408,8 @@ def render_orders():
             # צמצום עמודות כדי למנוע גלילה אופקית, הצגת המידע החשוב בלבד בראייה רחבה
             if "מספר הזמנה" in display_orders.columns:
                 display_orders = display_orders.sort_values(by="מספר הזמנה", key=lambda x: pd.to_numeric(x, errors="coerce"), ascending=False)
-            cols = ["מספר הזמנה", "סטטוס", "מחיר", "סטטוס תשלום", "תאריך תשלום", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "תאריך אספקה", "תאריך הזמנה", "פריט", "שם לקוחה"]
+            cols = ["שם לקוחה", "פריט", "תאריך הזמנה", "תאריך אספקה", "גזרת עליון", "גזרת תחתון", "עליון", "תחתון", "התאמות", "מספר הזמנה", "סטטוס", "מחיר", "סטטוס תשלום", "תאריך תשלום"]
+            pocket_cols = ["מספר הזמנה", "סטטוס", "מחיר", "סטטוס תשלום"] # for mobile/collapsed views
             cols = [c for c in cols if c in display_orders.columns]
 
             if st.session_state.delete_mode_orders:
@@ -516,7 +517,7 @@ def render_orders():
                                 save_orders["תאריך תשלום"] = save_orders["תאריך תשלום"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
                                 save_orders = save_orders.rename(columns={
                                     "מספר הזמנה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך אספקה": "Delivery Date",
-                                    "שם לקוחה": "Customer Name", "פריט": "Item", "סטטוס": "Status", "סטטוס תשלום": "Payment Status",
+                                    "שם לקוחה": "Customer Name", "פריט": "Item", "סטטוס": "Status", "מחיר": "Price", "סטטוס תשלום": "Payment Status",
                                     "תאריך תשלום": "Payment Date",
                                     "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
                                 })
@@ -568,6 +569,3 @@ def render_orders():
 
         else:
             st.info("עדיין אין הזמנות במערכת. הוסיפי את ההזמנה הראשונה למטה!")
-
-
-
