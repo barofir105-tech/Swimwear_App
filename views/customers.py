@@ -222,6 +222,10 @@ def render_customer_card():
                         customer_orders["Order Date"] = pd.to_datetime(customer_orders["Order Date"], format="%d/%m/%Y", errors="coerce").dt.date
                     if "Delivery Date" in customer_orders.columns:
                         customer_orders["Delivery Date"] = pd.to_datetime(customer_orders["Delivery Date"], format="%d/%m/%Y", errors="coerce").dt.date
+                    if "Payment Date" in customer_orders.columns:
+                        customer_orders["Payment Date"] = pd.to_datetime(customer_orders["Payment Date"], format="%d/%m/%Y", errors="coerce").dt.date
+                    if "Price" in customer_orders.columns:
+                        customer_orders["Price"] = pd.to_numeric(customer_orders["Price"], errors="coerce").fillna(0)
 
                     display_cust_orders = customer_orders.rename(columns={
                         "Price": "מחיר", "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 

@@ -396,6 +396,10 @@ def render_orders():
                 display_orders["Order Date"] = pd.to_datetime(display_orders["Order Date"], format="%d/%m/%Y", errors="coerce").dt.date
             if "Delivery Date" in display_orders.columns:
                 display_orders["Delivery Date"] = pd.to_datetime(display_orders["Delivery Date"], format="%d/%m/%Y", errors="coerce").dt.date
+            if "Payment Date" in display_orders.columns:
+                display_orders["Payment Date"] = pd.to_datetime(display_orders["Payment Date"], format="%d/%m/%Y", errors="coerce").dt.date
+            if "Price" in display_orders.columns:
+                display_orders["Price"] = pd.to_numeric(display_orders["Price"], errors="coerce").fillna(0)
 
             display_orders = display_orders.rename(columns={
                 "Order ID": "מספר הזמנה", "Order Date": "תאריך הזמנה", "Delivery Date": "תאריך אספקה",
