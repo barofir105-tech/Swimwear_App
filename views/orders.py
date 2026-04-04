@@ -315,27 +315,32 @@ def render_orders():
                     "Pattern": pattern_name,
                     "Order Notes": order_notes,
                     "Status": status, "Payment Status": pay_status_emoji, 
-                    "Supply Type": supply, "Price": price, "Payment Date": form_payment_date_val
+                    "Supply Type": supply, "Price": price, "Payment Date": form_payment_date_val,
+                    "Bypass Inventory": bypass_inventory
                 }
 
                 new_order_df = pd.DataFrame([order_row_dict])
                 st.session_state.orders_df = pd.concat([st.session_state.orders_df, new_order_df], ignore_index=True)
 
-                # ניכוי צריכת בד בפועל מהמלאי המקומי ומהענן לכל הבדים שנבחרו
-                updated_inventory = st.session_state.inventory_df.copy()
-                updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0)
-                for fab_name, req_m in usage_map.items():
-                    mask = updated_inventory["Fabric Name"] == fab_name
-                    if mask.any():
-                        updated_inventory.loc[mask, "Initial Meters"] = updated_inventory.loc[mask, "Initial Meters"] - req_m
-                st.session_state.inventory_df = updated_inventory
+                # ניכוי צריכת בד בפועל מהמלאי המקומי ומהענן - רק אם לא התעלמנו מהמלאי
+                if not bypass_inventory:
+                    updated_inventory = st.session_state.inventory_df.copy()
+                    updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0)
+                    for fab_name, req_m in usage_map.items():
+                        mask = updated_inventory["Fabric Name"] == fab_name
+                        if mask.any():
+                            updated_inventory.loc[mask, "Initial Meters"] = updated_inventory.loc[mask, "Initial Meters"] - req_m
+                    st.session_state.inventory_df = updated_inventory
+                    if inventory_sheet:
+                        inventory_sheet.clear()
+                        inventory_sheet.update([updated_inventory.columns.values.tolist()] + updated_inventory.values.tolist())
 
                 if orders_sheet:
                     if len(st.session_state.orders_df) == 1: 
                         orders_sheet.append_row([
                             "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
                             "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
-                            "Swimsuit Type", "Pattern", "Order Notes", "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
+                            "Swimsuit Type", "Pattern", "Order Notes", "Status", "Payment Status", "Supply Type", "Price", "Payment Date", "Bypass Inventory"
                         ])
                     orders_sheet.append_row([
                         order_row_dict["Order ID"], order_row_dict["Order Date"], order_row_dict["Delivery Date"],
@@ -345,7 +350,7 @@ def render_orders():
                         order_row_dict["Fabric"], order_row_dict["Fabric Usage"], order_row_dict["Fabric 2"], order_row_dict["Fabric Usage 2"],
                         order_row_dict["Swimsuit Type"], order_row_dict["Pattern"], order_row_dict["Order Notes"],
                         order_row_dict["Status"], order_row_dict["Payment Status"], order_row_dict["Supply Type"],
-                        order_row_dict["Price"], order_row_dict["Payment Date"]
+                        order_row_dict["Price"], order_row_dict["Payment Date"], order_row_dict["Bypass Inventory"]
                     ])
 
                 if inventory_sheet is not None:
@@ -495,18 +500,54 @@ def render_orders():
                         if st.button("מחקי מסומנות 🗑️", type="primary", use_container_width=True):
                             with st.spinner("מעדכן מסד נתונים..."):
                                 ids_to_delete = orders_to_delete["מ\"ה"].tolist()
-                                st.session_state.orders_df = orders_df[~orders_df["Order ID"].isin(ids_to_delete)]
+                                # Identify internal items for inventory return
+                                deleted_full_rows = orders_df[orders_df["Order ID"].isin(ids_to_delete)]
+                                
+                                # Return fabric to stock if it wasn't bypassed
+                                updated_inventory = st.session_state.inventory_df.copy()
+                                updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0)
+                                for _, o_row in deleted_full_rows.iterrows():
+                                    bypass = str(o_row.get("Bypass Inventory", "")).strip().lower() == "true"
+                                    if not bypass:
+                                        # Return Fabric 1
+                                        f1 = str(o_row.get("Fabric", ""))
+                                        u1 = float(o_row.get("Fabric Usage", 0.0))
+                                        if f1 and u1 > 0:
+                                            mask1 = updated_inventory["Fabric Name"] == f1
+                                            if mask1.any():
+                                                updated_inventory.loc[mask1, "Initial Meters"] += u1
+                                        # Return Fabric 2
+                                        f2 = str(o_row.get("Fabric 2", ""))
+                                        u2 = float(o_row.get("Fabric Usage 2", 0.0))
+                                        if f2 and u2 > 0:
+                                            mask2 = updated_inventory["Fabric Name"] == f2
+                                            if mask2.any():
+                                                updated_inventory.loc[mask2, "Initial Meters"] += u2
+                                
+                                st.session_state.inventory_df = updated_inventory
+                                if inventory_sheet:
+                                    inventory_sheet.clear()
+                                    inventory_sheet.update([updated_inventory.columns.values.tolist()] + updated_inventory.values.tolist())
 
+                                st.session_state.orders_df = orders_df[~orders_df["Order ID"].isin(ids_to_delete)]
                                 orders_sheet.clear()
                                 if st.session_state.orders_df.empty:
                                     orders_sheet.update([[
                                         "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
                                         "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                                         "Swimsuit Type", "Pattern", "Order Notes",
-                                        "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
+                                        "Status", "Payment Status", "Supply Type", "Price", "Payment Date", "Bypass Inventory"
                                     ]])
                                 else:
-                                    orders_sheet.update([st.session_state.orders_df.columns.values.tolist()] + st.session_state.orders_df.values.tolist())
+                                    # Ensure column order is consistent
+                                    cols_to_save = [
+                                        "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
+                                        "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
+                                        "Swimsuit Type", "Pattern", "Order Notes",
+                                        "Status", "Payment Status", "Supply Type", "Price", "Payment Date", "Bypass Inventory"
+                                    ]
+                                    save_df = st.session_state.orders_df[cols_to_save]
+                                    orders_sheet.update([save_df.columns.values.tolist()] + save_df.values.tolist())
 
                                 st.session_state.delete_mode_orders = False
                                 st.toast("ההזמנות נמחקו!", icon="✅"); st.rerun()
