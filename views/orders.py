@@ -402,18 +402,19 @@ def render_orders():
                 display_orders["Price"] = pd.to_numeric(display_orders["Price"], errors="coerce").fillna(0)
 
             display_orders = display_orders.rename(columns={
-                "Order ID": "מספר הזמנה", "Order Date": "תאריך הזמנה", "Delivery Date": "תאריך אספקה",
-                "Customer Name": "שם לקוחה", "Item": "פריט", "Status": "סטטוס", "Payment Status": "סטטוס תשלום",
+                "Order ID": "מ\"ה", "Order Date": "הזמנה", "Delivery Date": "מסירה",
+                "Customer Name": "שם לקוחה", "Item": "פריט", "Status": "סטטוס", "Payment Status": "תשלום",
                 "Price": "מחיר", "Top Size": "עליון", "Bottom Size": "תחתון", "Custom Size": "התאמות", 
                 "Top Cut": "גזרת עליון", "Bottom Cut": "גזרת תחתון", "Fabric Usage": "צריכת בד (מ')",
                 "Payment Date": "תאריך תשלום"
             })
 
             # צמצום עמודות כדי למנוע גלילה אופקית, הצגת המידע החשוב בלבד בראייה רחבה
-            if "מספר הזמנה" in display_orders.columns:
-                display_orders = display_orders.sort_values(by="מספר הזמנה", key=lambda x: pd.to_numeric(x, errors="coerce"), ascending=False)
-            cols = ["שם לקוחה", "פריט", "תאריך הזמנה", "תאריך אספקה", "גזרת עליון", "גזרת תחתון", "עליון", "תחתון", "התאמות", "מספר הזמנה", "סטטוס", "מחיר", "סטטוס תשלום", "תאריך תשלום"]
-            pocket_cols = ["מספר הזמנה", "סטטוס", "מחיר", "סטטוס תשלום"] # for mobile/collapsed views
+            if "מ\"ה" in display_orders.columns:
+                display_orders = display_orders.sort_values(by="מ\"ה", key=lambda x: pd.to_numeric(x, errors="coerce"), ascending=False)
+            
+            # Left to Right list for RTL display: תשלום represents the leftmost, שם לקוחה the rightmost
+            cols = ["תשלום", "מחיר", "סטטוס", "מ\"ה", "התאמות", "תחתון", "עליון", "גזרת תחתון", "גזרת עליון", "מסירה", "הזמנה", "פריט", "שם לקוחה"]
             cols = [c for c in cols if c in display_orders.columns]
 
             if st.session_state.delete_mode_orders:
@@ -423,9 +424,9 @@ def render_orders():
             display_orders = display_orders[cols]
 
             # Migrate old values → bare emoji only (backward compat)
-            if "סטטוס תשלום" in display_orders.columns:
-                display_orders["סטטוס תשלום"] = (
-                    display_orders["סטטוס תשלום"].astype(str)
+            if "תשלום" in display_orders.columns:
+                display_orders["תשלום"] = (
+                    display_orders["תשלום"].astype(str)
                     .str.replace("🟡", "🧡", regex=False)  # old ירוק → כתום
                     .str.replace("🟢", "💚", regex=False)  # old ירוק → לב
                     .str.split(" ").str[0]               # שמור רק את האמוג'י
@@ -435,20 +436,19 @@ def render_orders():
                     .str.replace("ממתינה לייצור", "ממתינה להכנה", regex=False)
 
             config = {
-                "מספר הזמנה": st.column_config.TextColumn("מ\"ה", disabled=True, width="small"),
+                "מ\"ה": st.column_config.TextColumn("מ\"ה", disabled=True, width="small"),
                 "שם לקוחה": st.column_config.TextColumn("שם לקוחה", disabled=True, width="medium"),
                 "פריט": st.column_config.TextColumn("פריט"),
-                "תאריך הזמנה": st.column_config.DateColumn("הזמנה", format="DD/MM/YYYY", width="small"),
-                "תאריך אספקה": st.column_config.DateColumn("מסירה", format="DD/MM/YYYY", width="small"),
+                "הזמנה": st.column_config.DateColumn("הזמנה", format="DD/MM/YYYY", width="small"),
+                "מסירה": st.column_config.DateColumn("מסירה", format="DD/MM/YYYY", width="small"),
                 "התאמות": st.column_config.TextColumn("התאמות", width="small"),
                 "סטטוס": st.column_config.SelectboxColumn("סטטוס", options=["🆕 התקבלה (ממתינה להכנה)", "✂️ בגזירה/תפירה", "📦 מוכנה לאיסוף/משלוח", "✅ נמסרה ללקוחה"], width="medium"),
-                "סטטוס תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
+                "תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
                 "מחיר": st.column_config.NumberColumn("מחיר", format="₪%d", width="small"),
                 "עליון": st.column_config.TextColumn("עליון", width="small"),
                 "תחתון": st.column_config.TextColumn("תחתון", width="small"),
                 "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
-                "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small"),
-                "תאריך תשלום": st.column_config.DateColumn("תשלום", format="DD/MM/YYYY", width="small")
+                "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small")
             }
             if st.session_state.delete_mode_orders:
                 config["בחרי"] = st.column_config.CheckboxColumn("בחרי", default=False)
