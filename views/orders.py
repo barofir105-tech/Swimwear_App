@@ -493,7 +493,7 @@ def render_orders():
                     if not orders_to_delete.empty:
                         if st.button("מחקי מסומנות 🗑️", type="primary", use_container_width=True):
                             with st.spinner("מעדכן מסד נתונים..."):
-                                ids_to_delete = orders_to_delete["מספר הזמנה"].tolist()
+                                ids_to_delete = orders_to_delete["מ\"ה"].tolist()
                                 st.session_state.orders_df = orders_df[~orders_df["Order ID"].isin(ids_to_delete)]
 
                                 orders_sheet.clear()
@@ -515,13 +515,16 @@ def render_orders():
                         if st.button("💾 שמרי שינויים", type="primary", use_container_width=True):
                             with st.spinner("מעדכן שינויים..."):
                                 save_orders = pd.concat([edited_active, edited_completed])
-                                save_orders["תאריך הזמנה"] = save_orders["תאריך הזמנה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
-                                save_orders["תאריך אספקה"] = save_orders["תאריך אספקה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
+                                if "הזמנה" in save_orders.columns:
+                                    save_orders["הזמנה"] = save_orders["הזמנה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
+                                if "מסירה" in save_orders.columns:
+                                    save_orders["מסירה"] = save_orders["מסירה"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
+                                if "תאריך תשלום" in save_orders.columns:
+                                    save_orders["תאריך תשלום"] = save_orders["תאריך תשלום"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
 
-                                save_orders["תאריך תשלום"] = save_orders["תאריך תשלום"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notnull(x) else "")
                                 save_orders = save_orders.rename(columns={
-                                    "מספר הזמנה": "Order ID", "תאריך הזמנה": "Order Date", "תאריך אספקה": "Delivery Date",
-                                    "שם לקוחה": "Customer Name", "פריט": "Item", "סטטוס": "Status", "מחיר": "Price", "סטטוס תשלום": "Payment Status",
+                                    "מ\"ה": "Order ID", "הזמנה": "Order Date", "מסירה": "Delivery Date",
+                                    "שם לקוחה": "Customer Name", "פריט": "Item", "סטטוס": "Status", "מחיר": "Price", "תשלום": "Payment Status",
                                     "תאריך תשלום": "Payment Date",
                                     "עליון": "Top Size", "תחתון": "Bottom Size", "גזרת עליון": "Top Cut", "גזרת תחתון": "Bottom Cut", "התאמות": "Custom Size", "צריכת בד (מ')": "Fabric Usage"
                                 })
