@@ -512,7 +512,8 @@ def render_orders():
                                 
                                 # Return fabric to stock if it wasn't bypassed
                                 updated_inventory = st.session_state.inventory_df.copy()
-                                updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0)
+                                # כפיית המרה ל-float כדי למנוע TypeError בחישובי החזרה למלאי
+                                updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
                                 for _, o_row in deleted_full_rows.iterrows():
                                     bypass = str(o_row.get("Bypass Inventory", "")).strip().lower() == "true"
                                     if not bypass:
@@ -522,14 +523,16 @@ def render_orders():
                                         if f1 and u1 > 0:
                                             mask1 = updated_inventory["Fabric Name"] == f1
                                             if mask1.any():
-                                                updated_inventory.loc[mask1, "Initial Meters"] += u1
+                                                current_val1 = float(updated_inventory.loc[mask1, "Initial Meters"].values[0])
+                                                updated_inventory.loc[mask1, "Initial Meters"] = current_val1 + u1
                                         # Return Fabric 2
                                         f2 = str(o_row.get("Fabric 2", ""))
                                         u2 = float(o_row.get("Fabric Usage 2", 0.0))
                                         if f2 and u2 > 0:
                                             mask2 = updated_inventory["Fabric Name"] == f2
                                             if mask2.any():
-                                                updated_inventory.loc[mask2, "Initial Meters"] += u2
+                                                current_val2 = float(updated_inventory.loc[mask2, "Initial Meters"].values[0])
+                                                updated_inventory.loc[mask2, "Initial Meters"] = current_val2 + u2
                                 
                                 st.session_state.inventory_df = updated_inventory
                                 if inventory_sheet:
