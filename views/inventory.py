@@ -79,7 +79,7 @@ def render_inventory():
                         "שם הבד/צבע": st.column_config.TextColumn("שם הבד/צבע"),
                         "מק\"ט": st.column_config.TextColumn("מק\"ט", width="small"),
                         "כמות בארגז (מ')": st.column_config.NumberColumn("בארגז (מ')", format="%g", width="small"),
-                        "כמות זמינה (מ')": st.column_config.NumberColumn("זמין (מ')", format="%g", disabled=True, width="small"),
+                        "כמות זמינה (מ')": st.column_config.NumberColumn("זמין (מ')", format="%g", width="small"),
                         "תמונה": st.column_config.ImageColumn("תמונה", width="small"),
                         "_Original_Index": None,
                         "_Delivered_Usage": None,
@@ -95,7 +95,6 @@ def render_inventory():
                         use_container_width=True, 
                         hide_index=True, 
                         column_config=config,
-                        # row_height קיים בגרסאות Streamlit חדשות כדי להריץ תמונה גדולה
                         **({"row_height": 120} if int(st.__version__.split(".")[1]) >= 43 or (int(st.__version__.split(".")[0]) >= 2) else {}),
                         key=f"inv_editor_{search_term}"
                     )
@@ -138,12 +137,22 @@ def render_inventory():
                                     else:
                                         with st.spinner("שומרת את המלאי המעודכן בענן..."):
                                             # חילוץ נתוני העריכה ומיזוגם בחזרה לטבלת המלאי בהתאם לאינדקס המקורי
-                                            for _, row in edited_inv.iterrows():
+                                            for idx, row in edited_inv.iterrows():
                                                 orig_idx = int(row["_Original_Index"])
                                                 st.session_state.inventory_df.at[orig_idx, "Fabric ID"] = str(row["מק\"ט"]).strip()
                                                 st.session_state.inventory_df.at[orig_idx, "Fabric Name"] = str(row["שם הבד/צבע"]).strip()
-                                                # reverse calculation: Total Purchased (Initial) = Box (user edited) + Delivered
-                                                st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = float(row["כמות בארגז (מ')"]) + float(row.get("_Delivered_Usage", 0))
+                                                
+                                                # אם המשתמש שינה את "זמין", נשתמש בזה. אם לא, נשתמש ב-"בארגז".
+                                                # כרגע שניהם מייצגים את ה-Initial Meters בבסיס הנתונים.
+                                                old_row = df_view.loc[idx]
+                                                new_available = float(row["כמות זמינה (מ')"])
+                                                new_box = float(row["כמות בארגז (מ')"])
+                                                
+                                                final_value = new_available
+                                                if new_available == old_row["כמות זמינה (מ')"] and new_box != old_row["כמות בארגז (מ')"]:
+                                                    final_value = new_box
+                                                
+                                                st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = final_value + float(row.get("_Delivered_Usage", 0))
 
                                             save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"]]
                                             save_df["Image URL"] = save_df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
