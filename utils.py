@@ -191,8 +191,12 @@ def get_calculated_inventory():
     # 'In Box' = Initial Meters
     # 'Available' = Available Meters
     
+    # Ensure column existence safely
+    if "Available Meters" not in inv_df.columns:
+        inv_df["Available Meters"] = inv_df["Initial Meters"]
+    
     inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-    inv_df["Available Meters"] = pd.to_numeric(inv_df.get("Available Meters", 0.0), errors="coerce").fillna(0.0).astype(float)
+    inv_df["Available Meters"] = pd.to_numeric(inv_df["Available Meters"], errors="coerce").fillna(0.0).astype(float)
     
     # Simple direct mapping
     inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"]

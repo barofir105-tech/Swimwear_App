@@ -174,7 +174,11 @@ if "data_loaded" not in st.session_state or not st.session_state.data_loaded:
                                     inv.loc[inv["Fabric Name"] == f2, "Available Meters"] -= float(u2)
                 
                 # Ensure Rule 3 even in migration
-                inv["Available Meters"] = inv[["Initial Meters", "Available Meters"]].min(axis=1)
+                inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
+                inv["Available Meters"] = pd.to_numeric(inv["Available Meters"], errors="coerce").fillna(0.0).astype(float)
+                
+                # Use a safer row-wise min calculation
+                inv["Available Meters"] = inv.apply(lambda row: min(float(row["Initial Meters"]), float(row["Available Meters"])), axis=1)
                 
                 st.session_state.inventory_df = inv
                 # Note: We let the user 'Save' or it will save on their next interaction.

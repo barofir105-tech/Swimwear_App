@@ -247,6 +247,7 @@ def render_inventory():
                                 "Fabric ID": str(f_id).strip(),
                                 "Fabric Name": str(f_name).strip(),
                                 "Initial Meters": f_meters,
+                                "Available Meters": f_meters,  # Rule: New fabric starts with Box = Avail
                                 "Image URL": f_img_clean.strip(),
                             }
                             st.session_state.inventory_df = pd.concat(
