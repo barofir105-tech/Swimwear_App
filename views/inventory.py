@@ -66,7 +66,7 @@ def render_inventory():
 
                     # סדר העמודות מתהפך כדי שבטבלה עצמה זה יופיע מימין לשמאל:
                     # הוספנו את "תמונה" משמאל ביותר שזה אומר שהיא הראשונה ברשימה (מימין במסך).
-                    cols = ["תמונה", "כמות זמינה (מ')", "כמות בארגז (מ')", "מק\"ט", "שם הבד/צבע", "_Original_Index", "_Delivered_Usage"]
+                    cols = ["תמונה", "כמות זמינה (מ')", "כמות בארגז (מ')", "מק\"ט", "שם הבד/צבע", "_Original_Index"]
 
                     if st.session_state.delete_mode_inventory:
                         df_view["בחרי למחיקה"] = False
@@ -82,7 +82,6 @@ def render_inventory():
                         "כמות זמינה (מ')": st.column_config.NumberColumn("זמין (מ')", format="%g", width="small"),
                         "תמונה": st.column_config.ImageColumn("תמונה", width="small"),
                         "_Original_Index": None,
-                        "_Delivered_Usage": None,
                     }
                     if st.session_state.delete_mode_inventory:
                         config["בחרי למחיקה"] = st.column_config.CheckboxColumn("למחיקה", default=False)
