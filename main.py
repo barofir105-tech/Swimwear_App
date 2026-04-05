@@ -5,6 +5,7 @@ Handles: page config, global CSS, Google Sheets connection,
 """
 
 import streamlit as st
+import pandas as pd
 
 # ── Page config (MUST be first Streamlit call) ─────────────────────────
 st.set_page_config(page_title="Kalimi Manager", page_icon="👙", layout="wide")
