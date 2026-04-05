@@ -142,17 +142,25 @@ def render_inventory():
                                                 st.session_state.inventory_df.at[orig_idx, "Fabric ID"] = str(row["מק\"ט"]).strip()
                                                 st.session_state.inventory_df.at[orig_idx, "Fabric Name"] = str(row["שם הבד/צבע"]).strip()
                                                 
-                                                # אם המשתמש שינה את "זמין", נשתמש בזה. אם לא, נשתמש ב-"בארגז".
-                                                # כרגע שניהם מייצגים את ה-Initial Meters בבסיס הנתונים.
+                                                # reverse calculation:
+                                                # Initial Meters = Physical Box (new) + Physical Cut (usage from already-started orders)
+                                                # OR
+                                                # Initial Meters = Available (new) + Total Usage (all orders)
+                                                
                                                 old_row = df_view.loc[idx]
                                                 new_available = float(row["כמות זמינה (מ')"])
                                                 new_box = float(row["כמות בארגז (מ')"])
                                                 
-                                                final_value = new_available
-                                                if new_available == old_row["כמות זמינה (מ')"] and new_box != old_row["כמות בארגז (מ')"]:
-                                                    final_value = new_box
+                                                # Check which one changed. Default to Box if both changed or neither changed.
+                                                phys_cut = float(row.get("_Delivered_Usage", 0))
+                                                total_usage = float(row.get("_All_Usage", 0))
                                                 
-                                                st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = final_value + float(row.get("_Delivered_Usage", 0))
+                                                if new_available != old_row["כמות זמינה (מ')"]:
+                                                    # User edited "Available"
+                                                    st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = new_available + total_usage
+                                                else:
+                                                    # Default/User edited "In Box"
+                                                    st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = new_box + phys_cut
 
                                             save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"]]
                                             save_df["Image URL"] = save_df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())

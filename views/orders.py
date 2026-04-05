@@ -322,21 +322,8 @@ def render_orders():
                 new_order_df = pd.DataFrame([order_row_dict])
                 st.session_state.orders_df = pd.concat([st.session_state.orders_df, new_order_df], ignore_index=True)
 
-                # ניכוי צריכת בד בפועל מהמלאי המקומי ומהענן - רק אם לא התעלמנו מהמלאי
-                if not bypass_inventory:
-                    updated_inventory = st.session_state.inventory_df.copy()
-                    # המרה למספר וטיפול בערכים חסרים - כפייה של float כדי למנוע TypeError
-                    updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-                    for fab_name, req_m in usage_map.items():
-                        mask = updated_inventory["Fabric Name"] == fab_name
-                        if mask.any():
-                            # ביצוע החישוב והשמה חזרה
-                            current_val = float(updated_inventory.loc[mask, "Initial Meters"].values[0])
-                            updated_inventory.loc[mask, "Initial Meters"] = current_val - float(req_m)
-                    st.session_state.inventory_df = updated_inventory
-                    if inventory_sheet:
-                        inventory_sheet.clear()
-                        inventory_sheet.update([updated_inventory.columns.values.tolist()] + updated_inventory.values.tolist())
+                # ניכוי צריכת הבד מתבצע כעת באופן דינמי ב-utils.get_calculated_inventory
+                # אין צורך לעדכן כאן ידנית את ה-Initial Meters
 
                 if orders_sheet:
                     if len(st.session_state.orders_df) == 1: 
@@ -510,34 +497,8 @@ def render_orders():
                                 st.session_state.orders_df = orders_df.copy() # Refresh with potential new col
                                 deleted_full_rows = orders_df[orders_df["Order ID"].isin(ids_to_delete)]
                                 
-                                # Return fabric to stock if it wasn't bypassed
-                                updated_inventory = st.session_state.inventory_df.copy()
-                                # כפיית המרה ל-float כדי למנוע TypeError בחישובי החזרה למלאי
-                                updated_inventory["Initial Meters"] = pd.to_numeric(updated_inventory["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-                                for _, o_row in deleted_full_rows.iterrows():
-                                    bypass = str(o_row.get("Bypass Inventory", "")).strip().lower() == "true"
-                                    if not bypass:
-                                        # Return Fabric 1
-                                        f1 = str(o_row.get("Fabric", ""))
-                                        u1 = float(o_row.get("Fabric Usage", 0.0))
-                                        if f1 and u1 > 0:
-                                            mask1 = updated_inventory["Fabric Name"] == f1
-                                            if mask1.any():
-                                                current_val1 = float(updated_inventory.loc[mask1, "Initial Meters"].values[0])
-                                                updated_inventory.loc[mask1, "Initial Meters"] = current_val1 + u1
-                                        # Return Fabric 2
-                                        f2 = str(o_row.get("Fabric 2", ""))
-                                        u2 = float(o_row.get("Fabric Usage 2", 0.0))
-                                        if f2 and u2 > 0:
-                                            mask2 = updated_inventory["Fabric Name"] == f2
-                                            if mask2.any():
-                                                current_val2 = float(updated_inventory.loc[mask2, "Initial Meters"].values[0])
-                                                updated_inventory.loc[mask2, "Initial Meters"] = current_val2 + u2
-                                
-                                st.session_state.inventory_df = updated_inventory
-                                if inventory_sheet:
-                                    inventory_sheet.clear()
-                                    inventory_sheet.update([updated_inventory.columns.values.tolist()] + updated_inventory.values.tolist())
+                                # החזרת הבד למלאי מתבצעת כעת באופן דינמי ב-utils.get_calculated_inventory
+                                # המערכת מחשבת את היתרה לפי ההזמנות הקיימות בלבד
 
                                 st.session_state.orders_df = orders_df[~orders_df["Order ID"].isin(ids_to_delete)]
                                 orders_sheet.clear()

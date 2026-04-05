@@ -182,10 +182,57 @@ def get_calculated_inventory():
     inv_df = st.session_state.inventory_df.copy()
     if inv_df.empty:
         return inv_df
-    inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0)
-    inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"]
-    inv_df["כמות זמינה (מ')"] = inv_df["Initial Meters"]
-    inv_df["_Delivered_Usage"] = 0.0
+    
+    # Ensure orders exist in session
+    orders_df = st.session_state.get("orders_df", pd.DataFrame())
+    
+    # Convert and prepare inventory base
+    inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
+    inv_df["_Physical_Cut"] = 0.0
+    inv_df["_Pending_Reservation"] = 0.0
+    
+    if not orders_df.empty:
+        # Status for 'Reserved but NOT cut'
+        PENDING_STATUS = "🆕 התקבלה (ממתינה להכנה)"
+        
+        for _, o_row in orders_df.iterrows():
+            # Skip bypassed orders
+            bypass = str(o_row.get("Bypass Inventory", "")).strip().lower() == "true"
+            if bypass:
+                continue
+                
+            status = str(o_row.get("Status", "")).strip()
+            
+            # Primary Fabric
+            f1 = str(o_row.get("Fabric", "")).strip()
+            u1 = pd.to_numeric(o_row.get("Fabric Usage", 0.0), errors="coerce")
+            if f1 and u1 > 0:
+                mask1 = inv_df["Fabric Name"] == f1
+                if mask1.any():
+                    if status == PENDING_STATUS:
+                        inv_df.loc[mask1, "_Pending_Reservation"] += float(u1)
+                    else:
+                        inv_df.loc[mask1, "_Physical_Cut"] += float(u1)
+            
+            # Secondary Fabric
+            f2 = str(o_row.get("Fabric 2", "")).strip()
+            u2 = pd.to_numeric(o_row.get("Fabric Usage 2", 0.0), errors="coerce")
+            if f2 and u2 > 0:
+                mask2 = inv_df["Fabric Name"] == f2
+                if mask2.any():
+                    if status == PENDING_STATUS:
+                        inv_df.loc[mask2, "_Pending_Reservation"] += float(u2)
+                    else:
+                        inv_df.loc[mask2, "_Physical_Cut"] += float(u2)
+
+    # Calculate final display columns
+    inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"] - inv_df["_Physical_Cut"]
+    inv_df["כמות זמינה (מ')"] = inv_df["Initial Meters"] - (inv_df["_Physical_Cut"] + inv_df["_Pending_Reservation"])
+    
+    # Internal usage helper for saving logic
+    inv_df["_Delivered_Usage"] = inv_df["_Physical_Cut"]
+    inv_df["_All_Usage"] = inv_df["_Physical_Cut"] + inv_df["_Pending_Reservation"]
+    
     return inv_df
 
 
