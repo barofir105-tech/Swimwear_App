@@ -190,8 +190,13 @@ def get_calculated_inventory():
     # 'Available' = Initial Meters - Reserved Meters
     # Rule 3 (Hard Cap): Available <= In Box (Reserved >= 0)
     
+    if "Initial Meters" not in inv_df.columns:
+        inv_df["Initial Meters"] = 0.0
     inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-    inv_df["Reserved Meters"] = pd.to_numeric(inv_df.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0).astype(float)
+    
+    if "Reserved Meters" not in inv_df.columns:
+        inv_df["Reserved Meters"] = 0.0
+    inv_df["Reserved Meters"] = pd.to_numeric(inv_df["Reserved Meters"], errors="coerce").fillna(0.0).astype(float)
     
     # Calculate display columns
     inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"]
