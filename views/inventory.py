@@ -142,27 +142,37 @@ def render_inventory():
                                                 st.session_state.inventory_df.at[orig_idx, "Fabric ID"] = str(row["מק\"ט"]).strip()
                                                 st.session_state.inventory_df.at[orig_idx, "Fabric Name"] = str(row["שם הבד/צבע"]).strip()
                                                 
-                                                # reverse calculation:
-                                                # Initial Meters = Physical Box (new) + Physical Cut (usage from already-started orders)
-                                                # OR
-                                                # Initial Meters = Available (new) + Total Usage (all orders)
-                                                
+                                                # Use raw numeric values for calculations
                                                 old_row = df_view.loc[idx]
-                                                new_available = float(row["כמות זמינה (מ')"])
                                                 new_box = float(row["כמות בארגז (מ')"])
+                                                new_avail = float(row["כמות זמינה (מ')"])
+                                                old_box = float(old_row["כמות בארגז (מ')"])
+                                                old_avail = float(old_row["כמות זמינה (מ')"])
                                                 
-                                                # Check which one changed. Default to Box if both changed or neither changed.
-                                                phys_cut = float(row.get("_Delivered_Usage", 0))
-                                                total_usage = float(row.get("_All_Usage", 0))
+                                                # Current internal state
+                                                curr_initial = float(st.session_state.inventory_df.at[orig_idx, "Initial Meters"])
+                                                curr_reserved = float(st.session_state.inventory_df.at[orig_idx, "Reserved Meters"])
                                                 
-                                                if new_available != old_row["כמות זמינה (מ')"]:
-                                                    # User edited "Available"
-                                                    st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = new_available + total_usage
-                                                else:
-                                                    # Default/User edited "In Box"
-                                                    st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = new_box + phys_cut
+                                                # Rule 1: Box Update (Delta Preservation)
+                                                # Rule 2: Available Update (Independence)
+                                                if new_box != old_box:
+                                                    # Box was edited. Apply delta to Initial Meters.
+                                                    # Delta preservation is automatic: Available = (Initial + delta) - Reserved
+                                                    delta = new_box - old_box
+                                                    st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = curr_initial + delta
+                                                elif new_avail != old_avail:
+                                                    # Available was edited. Update Reserved Meters only.
+                                                    # New Avail = Initial - New Reserved  =>  New Reserved = Initial - New Avail
+                                                    new_reserved = curr_initial - new_avail
+                                                    st.session_state.inventory_df.at[orig_idx, "Reserved Meters"] = new_reserved
+                                                
+                                                # Rule 3: Hard Cap (Available <= Box / Reserved >= 0)
+                                                final_initial = float(st.session_state.inventory_df.at[orig_idx, "Initial Meters"])
+                                                final_reserved = float(st.session_state.inventory_df.at[orig_idx, "Reserved Meters"])
+                                                if final_reserved < 0:
+                                                    st.session_state.inventory_df.at[orig_idx, "Reserved Meters"] = 0.0
 
-                                            save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"]]
+                                            save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
                                             save_df["Image URL"] = save_df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
 
                                             inventory_sheet.clear()

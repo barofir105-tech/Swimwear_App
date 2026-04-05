@@ -110,13 +110,15 @@ def fetch_inventory_from_cloud(spreadsheet):
         sheet = spreadsheet.worksheet("Inventory")
         df = pd.DataFrame(sheet.get_all_records())
         if df.empty:
-            df = pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"])
+            df = pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"])
         else:
+            if "Reserved Meters" not in df.columns:
+                df["Reserved Meters"] = 0.0
             if "Image URL" in df.columns:
                 df["Image URL"] = df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
         return df, sheet
     except:
-        return pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"]), None
+        return pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]), None
 
 
 def fetch_patterns_from_cloud(spreadsheet):
@@ -178,62 +180,29 @@ def save_finance_data(data: dict) -> None:
 
 # ── Business logic helpers ────────────────────────────────────────────────
 def get_calculated_inventory():
-    """Returns inventory DataFrame with computed availability columns."""
+    """Returns inventory DataFrame with computed availability columns according to 3 strict rules."""
     inv_df = st.session_state.inventory_df.copy()
     if inv_df.empty:
         return inv_df
     
-    # Ensure orders exist in session
-    orders_df = st.session_state.get("orders_df", pd.DataFrame())
+    # ── Strict Definitions ──────────────────────────────────────────────────
+    # 'In Box' = Initial Meters (Physical)
+    # 'Available' = Initial Meters - Reserved Meters
+    # Rule 3 (Hard Cap): Available <= In Box (Reserved >= 0)
     
-    # Convert and prepare inventory base
     inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-    inv_df["_Physical_Cut"] = 0.0
-    inv_df["_Pending_Reservation"] = 0.0
+    inv_df["Reserved Meters"] = pd.to_numeric(inv_df.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0).astype(float)
     
-    if not orders_df.empty:
-        # Status for 'Reserved but NOT cut'
-        PENDING_STATUS = "🆕 התקבלה (ממתינה להכנה)"
-        
-        for _, o_row in orders_df.iterrows():
-            # Skip bypassed orders
-            bypass = str(o_row.get("Bypass Inventory", "")).strip().lower() == "true"
-            if bypass:
-                continue
-                
-            status = str(o_row.get("Status", "")).strip()
-            # Robust check for 'Pending/Reserved' status (matching keywords rather than exact emoji string)
-            is_pending = any(keyword in status for keyword in ["התקבלה", "ממתינה"])
-            
-            # Primary Fabric
-            f1 = str(o_row.get("Fabric", "")).strip()
-            u1 = pd.to_numeric(o_row.get("Fabric Usage", 0.0), errors="coerce")
-            if f1 and u1 > 0:
-                mask1 = inv_df["Fabric Name"] == f1
-                if mask1.any():
-                    if is_pending:
-                        inv_df.loc[mask1, "_Pending_Reservation"] += float(u1)
-                    else:
-                        inv_df.loc[mask1, "_Physical_Cut"] += float(u1)
-            
-            # Secondary Fabric
-            f2 = str(o_row.get("Fabric 2", "")).strip()
-            u2 = pd.to_numeric(o_row.get("Fabric Usage 2", 0.0), errors="coerce")
-            if f2 and u2 > 0:
-                mask2 = inv_df["Fabric Name"] == f2
-                if mask2.any():
-                    if is_pending:
-                        inv_df.loc[mask2, "_Pending_Reservation"] += float(u2)
-                    else:
-                        inv_df.loc[mask2, "_Physical_Cut"] += float(u2)
-
-    # Calculate final display columns
-    inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"] - inv_df["_Physical_Cut"]
-    inv_df["כמות זמינה (מ')"] = inv_df["Initial Meters"] - (inv_df["_Physical_Cut"] + inv_df["_Pending_Reservation"])
+    # Calculate display columns
+    inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"]
+    inv_df["כמות זמינה (מ')"] = inv_df["Initial Meters"] - inv_df["Reserved Meters"]
     
-    # Internal usage helper for saving logic
-    inv_df["_Delivered_Usage"] = inv_df["_Physical_Cut"]
-    inv_df["_All_Usage"] = inv_df["_Physical_Cut"] + inv_df["_Pending_Reservation"]
+    # Rule 3 Enforcement (Hard Cap/Safety Override)
+    # If Reserved < 0 (Available > Box), set Available = Box (Reserved = 0)
+    mask_over = inv_df["כמות זמינה (מ')"] > inv_df["כמות בארגז (מ')"]
+    if mask_over.any():
+        inv_df.loc[mask_over, "כמות זמינה (מ')"] = inv_df.loc[mask_over, "כמות בארגז (מ')"]
+        inv_df.loc[mask_over, "Reserved Meters"] = 0.0
     
     return inv_df
 
