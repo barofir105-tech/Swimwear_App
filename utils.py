@@ -202,6 +202,8 @@ def get_calculated_inventory():
                 continue
                 
             status = str(o_row.get("Status", "")).strip()
+            # Robust check for 'Pending/Reserved' status (matching keywords rather than exact emoji string)
+            is_pending = any(keyword in status for keyword in ["התקבלה", "ממתינה"])
             
             # Primary Fabric
             f1 = str(o_row.get("Fabric", "")).strip()
@@ -209,7 +211,7 @@ def get_calculated_inventory():
             if f1 and u1 > 0:
                 mask1 = inv_df["Fabric Name"] == f1
                 if mask1.any():
-                    if status == PENDING_STATUS:
+                    if is_pending:
                         inv_df.loc[mask1, "_Pending_Reservation"] += float(u1)
                     else:
                         inv_df.loc[mask1, "_Physical_Cut"] += float(u1)
@@ -220,7 +222,7 @@ def get_calculated_inventory():
             if f2 and u2 > 0:
                 mask2 = inv_df["Fabric Name"] == f2
                 if mask2.any():
-                    if status == PENDING_STATUS:
+                    if is_pending:
                         inv_df.loc[mask2, "_Pending_Reservation"] += float(u2)
                     else:
                         inv_df.loc[mask2, "_Physical_Cut"] += float(u2)
