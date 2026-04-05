@@ -457,19 +457,20 @@ def render_orders():
                     .str.replace("ממתינה לייצור", "ממתינה להכנה", regex=False)
 
             config = {
-                "מ\"ה": st.column_config.TextColumn("מ\"ה", disabled=True, width="small"),
-                "שם לקוחה": st.column_config.TextColumn("שם לקוחה", disabled=True, width="medium"),
-                "פריט": st.column_config.TextColumn("פריט"),
-                "הזמנה": st.column_config.DateColumn("הזמנה", format="DD/MM/YYYY", width="small"),
-                "מסירה": st.column_config.DateColumn("מסירה", format="DD/MM/YYYY", width="small"),
-                "התאמות": st.column_config.TextColumn("התאמות", width="small"),
-                "סטטוס": st.column_config.SelectboxColumn("סטטוס", options=["🆕 התקבלה (ממתינה להכנה)", "✂️ בגזירה/תפירה", "📦 מוכנה לאיסוף/משלוח", "✅ נמסרה ללקוחה"], width="medium"),
-                "תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
-                "מחיר": st.column_config.NumberColumn("מחיר", format="₪%d", width="small"),
-                "עליון": st.column_config.TextColumn("עליון", width="small"),
-                "תחתון": st.column_config.TextColumn("תחתון", width="small"),
-                "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
-                "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small")
+                "בחרי": st.column_config.CheckboxColumn("בחרי", default=False),
+                "מ\"ה": st.column_config.TextColumn("מ\"ה", disabled=True, width="small", alignment="right"),
+                "שם לקוחה": st.column_config.TextColumn("שם לקוחה", disabled=True, width="medium", alignment="right"),
+                "פריט": st.column_config.TextColumn("פריט", alignment="right"),
+                "הזמנה": st.column_config.DateColumn("הזמנה", format="DD/MM/YYYY", width="small", alignment="right"),
+                "מסירה": st.column_config.DateColumn("מסירה", format="DD/MM/YYYY", width="small", alignment="right"),
+                "התאמות": st.column_config.TextColumn("התאמות", width="small", alignment="right"),
+                "סטטוס": st.column_config.SelectboxColumn("סטטוס", options=["🆕 התקבלה (ממתינה להכנה)", "✂️ בגזירה/תפירה", "📦 מוכנה לאיסוף/משלוח", "✅ נמסרה ללקוחה"], width="medium", alignment="right"),
+                "תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small", alignment="right"),
+                "מחיר": st.column_config.NumberColumn("מחיר", format="₪%d", width="small", alignment="right"),
+                "עליון": st.column_config.TextColumn("עליון", width="small", alignment="right"),
+                "תחתון": st.column_config.TextColumn("תחתון", width="small", alignment="right"),
+                "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small", alignment="right"),
+                "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small", alignment="right")
             }
             if st.session_state.delete_mode_orders:
                 config["בחרי"] = st.column_config.CheckboxColumn("בחרי", default=False)
