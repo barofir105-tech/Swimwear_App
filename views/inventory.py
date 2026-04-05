@@ -148,7 +148,12 @@ def render_inventory():
                                                 old_box = float(old_row["כמות בארגז (מ')"])
                                                 old_avail = float(old_row["כמות זמינה (מ')"])
                                                 
-                                                # Current internal state
+                                                # Current internal state (with safety check for column existence)
+                                                if "Initial Meters" not in st.session_state.inventory_df.columns:
+                                                    st.session_state.inventory_df["Initial Meters"] = 0.0
+                                                if "Reserved Meters" not in st.session_state.inventory_df.columns:
+                                                    st.session_state.inventory_df["Reserved Meters"] = 0.0
+                                                
                                                 curr_initial = float(st.session_state.inventory_df.at[orig_idx, "Initial Meters"])
                                                 curr_reserved = float(st.session_state.inventory_df.at[orig_idx, "Reserved Meters"])
                                                 
