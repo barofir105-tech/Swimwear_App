@@ -110,16 +110,15 @@ def fetch_inventory_from_cloud(spreadsheet):
         sheet = spreadsheet.worksheet("Inventory")
         df = pd.DataFrame(sheet.get_all_records())
         if df.empty:
-            df = pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Available Meters", "Image URL"])
+            df = pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"])
         else:
-            if "Available Meters" not in df.columns:
-                # If column is missing, initialize 'Available' to 'Initial' (Standard Box count)
-                df["Available Meters"] = df.get("Initial Meters", 0.0)
+            if "Reserved Meters" not in df.columns:
+                df["Reserved Meters"] = 0.0
             if "Image URL" in df.columns:
                 df["Image URL"] = df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
         return df, sheet
     except:
-        return pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Available Meters", "Image URL"]), None
+        return pd.DataFrame(columns=["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]), None
 
 
 def fetch_patterns_from_cloud(spreadsheet):
@@ -181,33 +180,29 @@ def save_finance_data(data: dict) -> None:
 
 # ── Business logic helpers ────────────────────────────────────────────────
 def get_calculated_inventory():
-    """Returns inventory DataFrame with Box and Available columns directly mapped from the sheet."""
-    # This now reflects 'Direct Storage' as requested by the user for precise editing.
+    """Returns inventory DataFrame with computed availability columns according to 3 strict rules."""
     inv_df = st.session_state.inventory_df.copy()
     if inv_df.empty:
         return inv_df
     
-    # ── Strict Definitions (Sourced directly from the spreadsheet) ──────────
-    # 'In Box' = Initial Meters
-    # 'Available' = Available Meters
-    
-    # Ensure column existence safely
-    if "Available Meters" not in inv_df.columns:
-        inv_df["Available Meters"] = inv_df["Initial Meters"]
+    # ── Strict Definitions ──────────────────────────────────────────────────
+    # 'In Box' = Initial Meters (Physical)
+    # 'Available' = Initial Meters - Reserved Meters
+    # Rule 3 (Hard Cap): Available <= In Box (Reserved >= 0)
     
     inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-    inv_df["Available Meters"] = pd.to_numeric(inv_df["Available Meters"], errors="coerce").fillna(0.0).astype(float)
+    inv_df["Reserved Meters"] = pd.to_numeric(inv_df.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0).astype(float)
     
-    # Simple direct mapping
+    # Calculate display columns
     inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"]
-    inv_df["כמות זמינה (מ')"] = inv_df["Available Meters"]
+    inv_df["כמות זמינה (מ')"] = inv_df["Initial Meters"] - inv_df["Reserved Meters"]
     
-    # Final Safety Override (Rule 3)
-    # Available can never be strictly greater than Box.
+    # Rule 3 Enforcement (Hard Cap/Safety Override)
+    # If Reserved < 0 (Available > Box), set Available = Box (Reserved = 0)
     mask_over = inv_df["כמות זמינה (מ')"] > inv_df["כמות בארגז (מ')"]
     if mask_over.any():
         inv_df.loc[mask_over, "כמות זמינה (מ')"] = inv_df.loc[mask_over, "כמות בארגז (מ')"]
-        inv_df.loc[mask_over, "Available Meters"] = inv_df.loc[mask_over, "Initial Meters"]
+        inv_df.loc[mask_over, "Reserved Meters"] = 0.0
     
     return inv_df
 

@@ -322,12 +322,14 @@ def render_orders():
                 new_order_df = pd.DataFrame([order_row_dict])
                 st.session_state.orders_df = pd.concat([st.session_state.orders_df, new_order_df], ignore_index=True)
 
-                # --- עדכון מלאי (לפי הכללים החדשים - אחסון ישיר) ---
+                # --- עדכון מלאי (לפי הכללים החדשים) ---
                 if not bypass_inventory:
                     inv = st.session_state.inventory_df
+                    # המרה למספרים ליתר ביטחון
                     inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
-                    inv["Available Meters"] = pd.to_numeric(inv.get("Available Meters", 0.0), errors="coerce").fillna(0.0)
+                    inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
                     
+                    # זיהוי סטטוס ממתין (הרשמה) מול סטטוס גזור (הפחתה פיזית)
                     is_pending_new = any(kw in status for kw in ["התקבלה", "ממתינה"])
                     
                     for f_name, usage in [(sel_fabric, fabric_usage), (sel_fabric_2 if add_second_fabric else None, fabric_usage_2)]:
@@ -335,17 +337,16 @@ def render_orders():
                             mask = inv["Fabric Name"] == f_name
                             if mask.any():
                                 if is_pending_new:
-                                    # Rule: Available drops, Box stays same
-                                    inv.loc[mask, "Available Meters"] -= float(usage)
+                                    # Rule: Available drops, Box stays same => Increase Reserved
+                                    inv.loc[mask, "Reserved Meters"] += float(usage)
                                 else:
-                                    # Rule: Box drops (Available was technically never reserved or is being cut immediately)
-                                    # If it's cut directly without being pending, both must drop to stay synced
+                                    # Rule: Box drops, Available stays same => Decrease Initial (Physical)
                                     inv.loc[mask, "Initial Meters"] -= float(usage)
-                                    inv.loc[mask, "Available Meters"] -= float(usage)
                     
                     st.session_state.inventory_df = inv
                     if inventory_sheet:
-                        inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Available Meters", "Image URL"]]
+                        # שמירה לענן
+                        inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
                         inventory_sheet.clear()
                         inventory_sheet.update([inv_save.columns.values.tolist()] + inv_save.values.tolist())
 
@@ -521,10 +522,10 @@ def render_orders():
                                 st.session_state.orders_df = orders_df.copy() # Refresh with potential new col
                                 deleted_full_rows = orders_df[orders_df["Order ID"].isin(ids_to_delete)]
                                 
-                                # --- החזרת הבד למלאי (לפי הכללים החדשים - אחסון ישיר) ---
+                                # --- החזרת הבד למלאי (לפי הכללים החדשים) ---
                                 inv = st.session_state.inventory_df
                                 inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
-                                inv["Available Meters"] = pd.to_numeric(inv.get("Available Meters", 0.0), errors="coerce").fillna(0.0)
+                                inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
                                 
                                 for _, o_row in deleted_full_rows.iterrows():
                                     bypass = str(o_row.get("Bypass Inventory", "")).strip().lower() == "true"
@@ -532,21 +533,19 @@ def render_orders():
                                         status_old = str(o_row.get("Status", "")).strip()
                                         is_pending_old = any(kw in status_old for kw in ["התקבלה", "ממתינה"])
                                         
+                                        # Primary & Secondary
                                         for f_name, usage in [(o_row.get("Fabric"), o_row.get("Fabric Usage")), (o_row.get("Fabric 2"), o_row.get("Fabric Usage 2"))]:
                                             if f_name and float(usage or 0) > 0:
                                                 mask = inv["Fabric Name"] == f_name
                                                 if mask.any():
                                                     if is_pending_old:
-                                                        # Return to Available only
-                                                        inv.loc[mask, "Available Meters"] += float(usage)
+                                                        inv.loc[mask, "Reserved Meters"] -= float(usage)
                                                     else:
-                                                        # Return to both
                                                         inv.loc[mask, "Initial Meters"] += float(usage)
-                                                        inv.loc[mask, "Available Meters"] += float(usage)
                                 
                                 st.session_state.inventory_df = inv
                                 if inventory_sheet:
-                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Available Meters", "Image URL"]]
+                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
                                     inventory_sheet.clear()
                                     inventory_sheet.update([inv_save.columns.values.tolist()] + inv_save.values.tolist())
 
@@ -598,7 +597,7 @@ def render_orders():
 
                                 today_str = datetime.now().strftime("%d/%m/%Y")
                                 for o_id, row in save_indexed.iterrows():
-                                    # --- עדכון מלאי על שינוי סטטוס (אחסון ישיר) ---
+                                    # --- עדכון מלאי על שינוי סטטוס ---
                                     if o_id in orders_indexed.index:
                                         old_row = orders_indexed.loc[o_id]
                                         new_status = str(row["Status"]).strip()
@@ -611,7 +610,7 @@ def render_orders():
                                             if not bypass:
                                                 inv = st.session_state.inventory_df
                                                 inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
-                                                inv["Available Meters"] = pd.to_numeric(inv.get("Available Meters", 0.0), errors="coerce").fillna(0.0)
+                                                inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
                                                 
                                                 for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
                                                     f_name = str(old_row.get(f_col, "")).strip()
@@ -620,15 +619,15 @@ def render_orders():
                                                         mask = inv["Fabric Name"] == f_name
                                                         if mask.any():
                                                             if is_p_old and not is_p_new: # Pending -> Cut
-                                                                # Rule: Box drops. Available is already deducted from when it was pending.
                                                                 inv.loc[mask, "Initial Meters"] -= float(usage)
+                                                                inv.loc[mask, "Reserved Meters"] -= float(usage)
                                                             elif not is_p_old and is_p_new: # Cut -> Pending
-                                                                # Rule: Box returns. Available stays deducted (now it's reserved).
                                                                 inv.loc[mask, "Initial Meters"] += float(usage)
+                                                                inv.loc[mask, "Reserved Meters"] += float(usage)
                                                 
                                                 st.session_state.inventory_df = inv
                                                 if inventory_sheet:
-                                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Available Meters", "Image URL"]]
+                                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
                                                     inventory_sheet.clear()
                                                     inventory_sheet.update([inv_save.columns.values.tolist()] + inv_save.values.tolist())
 
