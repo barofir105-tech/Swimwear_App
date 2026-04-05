@@ -148,43 +148,37 @@ if "data_loaded" not in st.session_state or not st.session_state.data_loaded:
         
         st.session_state.inventory_df, st.session_state.inventory_sheet = fetch_inventory_from_cloud(spreadsheet)
         
-        # --- One-time Migration for Strict Inventory Math ---
-        if "inventory_math_migrated" not in st.session_state or not st.session_state.inventory_math_migrated:
+        # --- One-time Migration for State-Based Inventory (Direct Storage) ---
+        if "inventory_direct_migrated" not in st.session_state or not st.session_state.inventory_direct_migrated:
             inv = st.session_state.inventory_df
             orders = st.session_state.orders_df
             if not inv.empty:
-                # 1. Ensure columns are numeric
+                # 1. Ensure numeric
                 inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-                if "Reserved Meters" not in inv.columns:
-                    inv["Reserved Meters"] = 0.0
-                inv["Reserved Meters"] = pd.to_numeric(inv["Reserved Meters"], errors="coerce").fillna(0.0).astype(float)
+                if "Available Meters" not in inv.columns:
+                    # Logic: Available = Box - Currently Pending
+                    inv["Available Meters"] = inv["Initial Meters"]
+                    if not orders.empty:
+                        for _, o in orders.iterrows():
+                            if str(o.get("Bypass Inventory", "")).lower() == "true": continue
+                            status = str(o.get("Status", "")).strip()
+                            if any(kw in status for kw in ["התקבלה", "ממתינה"]):
+                                u1 = pd.to_numeric(o.get("Fabric Usage", 0.0), errors="coerce")
+                                f1 = str(o.get("Fabric", "")).strip()
+                                if f1 and u1 > 0:
+                                    inv.loc[inv["Fabric Name"] == f1, "Available Meters"] -= float(u1)
+                                
+                                u2 = pd.to_numeric(o.get("Fabric Usage 2", 0.0), errors="coerce")
+                                f2 = str(o.get("Fabric 2", "")).strip()
+                                if f2 and u2 > 0:
+                                    inv.loc[inv["Fabric Name"] == f2, "Available Meters"] -= float(u2)
                 
-                # 2. Reset calculations (re-sync from scratch to be safe)
-                # We assume current 'Initial Meters' is exactly what's In Box.
-                # All we need is to populate the 'Reserved' column based on current Pending orders.
-                new_reserved = {}
-                if not orders.empty:
-                    for _, o in orders.iterrows():
-                        if str(o.get("Bypass Inventory", "")).lower() == "true": continue
-                        status = str(o.get("Status", "")).strip()
-                        if any(kw in status for kw in ["התקבלה", "ממתינה"]):
-                            u1 = pd.to_numeric(o.get("Fabric Usage", 0.0), errors="coerce")
-                            f1 = str(o.get("Fabric", "")).strip()
-                            if f1 and u1 > 0:
-                                new_reserved[f1] = new_reserved.get(f1, 0.0) + float(u1)
-                            
-                            u2 = pd.to_numeric(o.get("Fabric Usage 2", 0.0), errors="coerce")
-                            f2 = str(o.get("Fabric 2", "")).strip()
-                            if f2 and u2 > 0:
-                                new_reserved[f2] = new_reserved.get(f2, 0.0) + float(u2)
-                
-                # Apply the calculated reservations
-                for f_name, res_val in new_reserved.items():
-                    inv.loc[inv["Fabric Name"] == f_name, "Reserved Meters"] = res_val
+                # Ensure Rule 3 even in migration
+                inv["Available Meters"] = inv[["Initial Meters", "Available Meters"]].min(axis=1)
                 
                 st.session_state.inventory_df = inv
                 # Note: We let the user 'Save' or it will save on their next interaction.
-            st.session_state.inventory_math_migrated = True
+            st.session_state.inventory_direct_migrated = True
         st.session_state.patterns_df,  st.session_state.patterns_sheet  = fetch_patterns_from_cloud(spreadsheet)
         st.session_state.finance_data, st.session_state.finance_sheet   = fetch_finance_from_cloud(spreadsheet)
         st.session_state.data_loaded = True

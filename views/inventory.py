@@ -136,45 +136,51 @@ def render_inventory():
                                         st.error("❌ שגיאה: יש כפילות בשם הבד! אנא השתמשי בשמות ייחודיים.")
                                     else:
                                         with st.spinner("שומרת את המלאי המעודכן בענן..."):
-                                            # חילוץ נתוני העריכה ומיזוגם בחזרה לטבלת המלאי בהתאם לאינדקס המקורי
-                                            for idx, row in edited_inv.iterrows():
-                                                orig_idx = int(row["_Original_Index"])
-                                                st.session_state.inventory_df.at[orig_idx, "Fabric ID"] = str(row["מק\"ט"]).strip()
-                                                st.session_state.inventory_df.at[orig_idx, "Fabric Name"] = str(row["שם הבד/צבע"]).strip()
-                                                
-                                                # Use raw numeric values for calculations
-                                                old_row = df_view.loc[idx]
-                                                new_box = float(row["כמות בארגז (מ')"])
-                                                new_avail = float(row["כמות זמינה (מ')"])
-                                                old_box = float(old_row["כמות בארגז (מ')"])
-                                                old_avail = float(old_row["כמות זמינה (מ')"])
+                                            editor_state = st.session_state.get(f"inv_editor_{search_term}", {})
+                                            edited_rows = editor_state.get("edited_rows", {})
+                                            
+                                            # We iterate only over the specific rows that were touched
+                                            for row_idx_str, edits in edited_rows.items():
+                                                # Convert index back to original
+                                                row_idx = int(row_idx_str)
+                                                orig_idx = int(filtered_inv.iloc[row_idx]["_Original_Index"])
                                                 
                                                 # Current internal state
-                                                curr_initial = float(st.session_state.inventory_df.at[orig_idx, "Initial Meters"])
-                                                curr_reserved = float(st.session_state.inventory_df.at[orig_idx, "Reserved Meters"])
+                                                curr_box = float(st.session_state.inventory_df.at[orig_idx, "Initial Meters"])
+                                                curr_avail = float(st.session_state.inventory_df.at[orig_idx, "Available Meters"])
                                                 
-                                                # Rule 1: Box Update (Delta Preservation)
-                                                # Rule 2: Available Update (Independence)
-                                                if new_box != old_box:
-                                                    # Box was edited. Apply delta to Initial Meters.
-                                                    # Delta preservation is automatic: Available = (Initial + delta) - Reserved
-                                                    delta = new_box - old_box
-                                                    st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = curr_initial + delta
-                                                elif new_avail != old_avail:
-                                                    # Available was edited. Update Reserved Meters only.
-                                                    # New Avail = Initial - New Reserved  =>  New Reserved = Initial - New Avail
-                                                    new_reserved = curr_initial - new_avail
-                                                    st.session_state.inventory_df.at[orig_idx, "Reserved Meters"] = new_reserved
+                                                # 1. Update Box (Rule 1: Delta Preservation)
+                                                if "כמות בארגז (מ')" in edits:
+                                                    new_box = float(edits["כמות בארגז (מ')"])
+                                                    delta = round(new_box - curr_box, 4)
+                                                    st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = round(curr_box + delta, 4)
+                                                    # Apply SAME delta to Available
+                                                    st.session_state.inventory_df.at[orig_idx, "Available Meters"] = round(curr_avail + delta, 4)
+                                                    # Update curr_avail for potential subsequent 'Available' edit in same row
+                                                    curr_avail = round(curr_avail + delta, 4)
                                                 
-                                                # Rule 3: Hard Cap (Available <= Box / Reserved >= 0)
-                                                final_initial = float(st.session_state.inventory_df.at[orig_idx, "Initial Meters"])
-                                                final_reserved = float(st.session_state.inventory_df.at[orig_idx, "Reserved Meters"])
-                                                if final_reserved < 0:
-                                                    st.session_state.inventory_df.at[orig_idx, "Reserved Meters"] = 0.0
+                                                # 2. Update Available (Rule 2: Independence)
+                                                if "כמות זמינה (מ')" in edits:
+                                                    new_avail = float(edits["כמות זמינה (מ')"])
+                                                    # Rule 2: Box remains untouched. Update Available only.
+                                                    st.session_state.inventory_df.at[orig_idx, "Available Meters"] = round(new_avail, 4)
 
-                                            save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
+                                                # 3. Final Safety Override (Rule 3: Hard Cap)
+                                                # Reload final values to check cap
+                                                f_box = float(st.session_state.inventory_df.at[orig_idx, "Initial Meters"])
+                                                f_avail = float(st.session_state.inventory_df.at[orig_idx, "Available Meters"])
+                                                if f_avail > f_box:
+                                                    st.session_state.inventory_df.at[orig_idx, "Available Meters"] = f_box
+
+                                                # IDs and Names
+                                                if "מק\"ט" in edits:
+                                                    st.session_state.inventory_df.at[orig_idx, "Fabric ID"] = str(edits["מק\"ט"]).strip()
+                                                if "שם הבד/צבע" in edits:
+                                                    st.session_state.inventory_df.at[orig_idx, "Fabric Name"] = str(edits["שם הבד/צבע"]).strip()
+
+                                            save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Available Meters", "Image URL"]]
                                             save_df["Image URL"] = save_df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
-
+                                            
                                             inventory_sheet.clear()
                                             inventory_sheet.update([save_df.columns.values.tolist()] + save_df.values.tolist())
                                             st.toast("המלאי עודכן בהצלחה!", icon="✅"); st.rerun()
