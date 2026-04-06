@@ -78,7 +78,9 @@ def render_dashboard():
                     pay    = str(row.get("Payment Status", "🔴"))
                     name   = str(row.get("Customer Name", ""))
                     oid    = str(row.get("Order ID", ""))
-                    price  = row.get("Price", 0)
+                    price = pd.to_numeric(row.get("Price", 0), errors="coerce")
+                    if pd.isna(price): 
+                        price = 0
                     delivery = str(row.get("Delivery Date", ""))
 
                     status_color = {"🆕": "#6366f1", "✂": "#f59e0b", "📦": "#22c55e"}.get(status[:1], "#94a3b8")
