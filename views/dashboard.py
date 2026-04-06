@@ -25,15 +25,37 @@ def render_dashboard():
     ready_pickup  = len(orders_df[orders_df["Status"] == "📦 מוכנה לאיסוף/משלוח"]) if not orders_df.empty else 0
     total_customers = len(customers_df) if not customers_df.empty else 0
 
-    # Monthly revenue (current month, paid orders)
+    # Monthly revenue (current month, paid orders) - matching financial.py attribution
     monthly_rev = 0.0
     if not orders_df.empty and "Payment Status" in orders_df.columns:
         now = datetime.now()
-        paid = orders_df[orders_df["Payment Status"] == "🟢"].copy()
-        if not paid.empty and "Payment Date" in paid.columns:
-            paid["_pd"] = pd.to_datetime(paid["Payment Date"], format="%d/%m/%Y", errors="coerce")
-            this_month = paid[(paid["_pd"].dt.month == now.month) & (paid["_pd"].dt.year == now.year)]
-            monthly_rev = pd.to_numeric(this_month.get("Price", 0), errors="coerce").fillna(0).sum()
+        cur_month = now.month
+        cur_year = now.year
+        
+        paid = orders_df[orders_df["Payment Status"].isin(["🟢", "💚"])].copy()
+        if not paid.empty:
+            def _get_best_date(r):
+                p_date = str(r.get("Payment Date") or "").strip()
+                d_date = str(r.get("Delivery Date") or "").strip()
+                o_date = str(r.get("Order Date") or "").strip()
+                if d_date:
+                    parsed = pd.to_datetime(d_date, format="%d/%m/%Y", errors="coerce")
+                    if pd.notnull(parsed): return parsed.date()
+                if p_date:
+                    parsed = pd.to_datetime(p_date, format="%d/%m/%Y", errors="coerce")
+                    if pd.notnull(parsed): return parsed.date()
+                parsed = pd.to_datetime(o_date, format="%d/%m/%Y", errors="coerce")
+                return parsed.date() if pd.notnull(parsed) else None
+
+            paid["_best_date"] = paid.apply(_get_best_date, axis=1)
+            paid = paid.dropna(subset=["_best_date"])
+            
+            # Filter for CURRENT month
+            this_month_orders = paid[
+                (paid["_best_date"].apply(lambda d: d.month) == cur_month) & 
+                (paid["_best_date"].apply(lambda d: d.year) == cur_year)
+            ]
+            monthly_rev = pd.to_numeric(this_month_orders.get("Price", 0), errors="coerce").fillna(0).sum()
 
     with k1:
         st.markdown("""<div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:12px;padding:18px 14px;text-align:center;color:white;">
