@@ -317,19 +317,25 @@ def render_customer_card():
                                 orders_indexed.update(save_indexed)
                                 orders_indexed.reset_index(inplace=True)
 
-                                for col in ["Payment Date", "Swimsuit Type", "Pattern", "Top Cut", "Bottom Cut", "Order Notes", "Fabric 2", "Fabric Usage 2"]:
+                                for col in ["Payment Date", "Swimsuit Type", "Pattern", "Top Cut", "Bottom Cut", "Order Notes", "Fabric 2", "Fabric Usage 2", "Bypass Inventory"]:
                                     if col not in orders_indexed.columns:
                                         orders_indexed[col] = ""
                                 final_save = orders_indexed[[
                                     "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
                                     "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                                     "Swimsuit Type", "Pattern", "Order Notes",
-                                    "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
+                                    "Status", "Payment Status", "Supply Type", "Price", "Payment Date", "Bypass Inventory"
                                 ]]
+
+                                # Sanitize for Google Sheets/JSON to prevent InvalidJSONError
+                                final_save_df = final_save.copy().fillna("")
+                                for col in final_save_df.columns:
+                                    if final_save_df[col].dtype == "object":
+                                        final_save_df[col] = final_save_df[col].astype(str).replace("nan", "").replace("None", "")
 
                                 st.session_state.orders_df = final_save
                                 orders_sheet.clear()
-                                orders_sheet.update([final_save.columns.values.tolist()] + final_save.values.tolist())
+                                orders_sheet.update([final_save_df.columns.values.tolist()] + final_save_df.values.tolist())
                                 st.toast("ההזמנות עודכנו בהצלחה!", icon="✅"); st.rerun()
                 else:
                     st.info("ללקוחה זו עדיין אין היסטוריית הזמנות במערכת.")
