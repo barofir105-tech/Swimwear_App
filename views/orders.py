@@ -205,7 +205,9 @@ def render_orders():
             with col_d1: form_order_date = st.date_input("תאריך הזמנה", value=datetime.today())
             with col_d2: form_delivery_date = st.date_input("תאריך מסירה מיועד", value=None)
 
-            order_notes = st.text_area("הערות להזמנה")
+            order_notes = ""
+            if swimsuit_type == "ביקיני":
+                order_notes = st.text_area("הערות להזמנה")
 
             st.markdown(
                 '<div style="background:linear-gradient(135deg,#fff0f3,#ffe4e6);border-right:4px solid #f43f5e;'
