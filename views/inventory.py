@@ -116,13 +116,18 @@ def render_inventory():
                                 if st.button("אישור מחיקה 🗑️", type="primary", use_container_width=True):
                                     with st.spinner("מוחקת מהמלאי (מסתנכרן עם הענן)..."):
                                         ids_to_delete = inv_to_delete["מק\"ט"].tolist()
-                                        st.session_state.inventory_df = inventory_df[~inventory_df["Fabric ID"].isin(ids_to_delete)]
+                                        # Sanitize for Google Sheets/JSON
+                                        inv_save = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
+                                        inv_save_clean = inv_save.fillna("")
+                                        for col in inv_save_clean.columns:
+                                            if inv_save_clean[col].dtype == "object":
+                                                inv_save_clean[col] = inv_save_clean[col].astype(str).replace("nan", "").replace("None", "")
 
                                         inventory_sheet.clear()
                                         if st.session_state.inventory_df.empty:
-                                            inventory_sheet.update([["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"]])
+                                            inventory_sheet.update([["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]])
                                         else:
-                                            inventory_sheet.update([st.session_state.inventory_df.columns.values.tolist()] + st.session_state.inventory_df.values.tolist())
+                                            inventory_sheet.update([inv_save_clean.columns.values.tolist()] + inv_save_clean.values.tolist())
 
                                         st.session_state.delete_mode_inventory = False
                                         st.toast("הבדים שנבחרו נמחקו בהצלחה!", icon="✅"); st.rerun()
@@ -176,11 +181,17 @@ def render_inventory():
                                                 if final_reserved < 0:
                                                     st.session_state.inventory_df.at[orig_idx, "Reserved Meters"] = 0.0
 
-                                            save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
+                                            save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
                                             save_df["Image URL"] = save_df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
+                                            
+                                            # Sanitize for Google Sheets/JSON
+                                            save_df_clean = save_df.fillna("")
+                                            for col in save_df_clean.columns:
+                                                if save_df_clean[col].dtype == "object":
+                                                    save_df_clean[col] = save_df_clean[col].astype(str).replace("nan", "").replace("None", "")
 
                                             inventory_sheet.clear()
-                                            inventory_sheet.update([save_df.columns.values.tolist()] + save_df.values.tolist())
+                                            inventory_sheet.update([save_df_clean.columns.values.tolist()] + save_df_clean.values.tolist())
                                             st.toast("המלאי עודכן בהצלחה!", icon="✅"); st.rerun()
             else:
                 st.info("עדיין אין בדים במערכת. עברי ללשונית 'הוספת בד חדש' כדי להתחיל!")

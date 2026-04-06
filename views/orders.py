@@ -567,7 +567,13 @@ def render_orders():
                                         "Swimsuit Type", "Pattern", "Order Notes",
                                         "Status", "Payment Status", "Supply Type", "Price", "Payment Date", "Bypass Inventory"
                                     ]
-                                    save_df = st.session_state.orders_df[cols_to_save]
+                                    save_df = st.session_state.orders_df[cols_to_save].copy()
+                                    # Sanitize for Google Sheets/JSON: fill NaN and convert to strings/numbers
+                                    save_df = save_df.fillna("")
+                                    for col in save_df.columns:
+                                        if save_df[col].dtype == "object":
+                                            save_df[col] = save_df[col].astype(str).replace("nan", "").replace("None", "")
+                                    
                                     orders_sheet.update([save_df.columns.values.tolist()] + save_df.values.tolist())
 
                                 st.session_state.delete_mode_orders = False
@@ -655,9 +661,15 @@ def render_orders():
                                     "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
                                 ]]
 
+                                # Sanitize for Google Sheets/JSON
+                                final_save_df = final_save.copy().fillna("")
+                                for col in final_save_df.columns:
+                                    if final_save_df[col].dtype == "object":
+                                        final_save_df[col] = final_save_df[col].astype(str).replace("nan", "").replace("None", "")
+
                                 st.session_state.orders_df = final_save
                                 orders_sheet.clear()
-                                orders_sheet.update([final_save.columns.values.tolist()] + final_save.values.tolist())
+                                orders_sheet.update([final_save_df.columns.values.tolist()] + final_save_df.values.tolist())
                                 st.toast("נשמר בהצלחה!", icon="✅"); st.rerun()
 
             # Excel export
