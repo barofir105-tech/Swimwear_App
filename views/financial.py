@@ -294,8 +294,15 @@ def render_financial():
                         st.warning("נא להזין שם תקין וסכום.")
 
             st.markdown("### 📋 טבלת תנועות")
-            if finance_data.get("transactions", []):
-                txn_df = pd.DataFrame(finance_data.get("transactions", []))
+            
+            all_historic_txns = list(finance_data.get("transactions", []))
+            for i, a_inc in enumerate(automated_incomes):
+                a_inc_copy = dict(a_inc)
+                a_inc_copy["id"] = f"auto_{i}" 
+                all_historic_txns.append(a_inc_copy)
+                
+            if all_historic_txns:
+                txn_df = pd.DataFrame(all_historic_txns)
 
                 if st.session_state.get("delete_mode_txn", False) == True:
                     txn_df["בחרי"] = False
