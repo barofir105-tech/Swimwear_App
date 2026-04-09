@@ -126,60 +126,13 @@ def render_financial():
 
             return hits
 
-        # 1. Gather Automated Incomes
-        automated_incomes = []
-        if not orders_df.empty and "Payment Status" in orders_df.columns:
-            if "Payment Date" not in orders_df.columns:
-                orders_df["Payment Date"] = orders_df["Order Date"]
-
-            paid_orders = orders_df[orders_df["Payment Status"].isin(["💚", "🟢"])].copy()
-            if not paid_orders.empty:
-                def _get_best_date(r):
-                    p_date = str(r.get("Payment Date") or "").strip()
-                    d_date = str(r.get("Delivery Date") or "").strip()
-                    o_date = str(r.get("Order Date") or "").strip()
-                    
-                    # 1. Delivery Date (Priority for manual edits)
-                    if d_date:
-                        parsed = pd.to_datetime(d_date, format="%d/%m/%Y", errors="coerce")
-                        if pd.notnull(parsed): return parsed.date()
-
-                    # 2. Payment Date (Fallback)
-                    if p_date:
-                        parsed = pd.to_datetime(p_date, format="%d/%m/%Y", errors="coerce")
-                        if pd.notnull(parsed): return parsed.date()
-                        
-                    # 3. Order Date (Last Resort)
-                    parsed = pd.to_datetime(o_date, format="%d/%m/%Y", errors="coerce")
-                    return parsed.date() if pd.notnull(parsed) else None
-
-                paid_orders["Parsed Date"] = paid_orders.apply(_get_best_date, axis=1)
-                paid_orders = paid_orders.dropna(subset=["Parsed Date"])
-
-                paid_in_range = paid_orders[
-                    (paid_orders["Parsed Date"] >= range_start) & 
-                    (paid_orders["Parsed Date"] <= range_end)
-                ]
-
-                for _, ro in paid_in_range.iterrows():
-                    price_val = pd.to_numeric(ro.get("Price", 0), errors='coerce')
-                    if pd.notnull(price_val) and price_val > 0:
-                        automated_incomes.append({
-                            "name": f"הזמנה #{ro.get('Order ID', '?')} - {ro.get('Customer Name', '')}",
-                            "amount": float(price_val),
-                            "Type": "Income",
-                            "Item": str(ro.get("Item", "כללי")),
-                            "date": ro["Parsed Date"].strftime("%Y-%m-%d"),
-                            "is_automated": True
-                        })
-
-        # 2. Gather Manual Transactions
-        manual_in_range = []
+        # 1. Gather All Transactions
+        all_txns_in_range = []
         for txn in finance_data.get("transactions", []):
             try:
                 txn_date = datetime.strptime(txn.get("date", "2000-01-01"), "%Y-%m-%d").date()
                 if range_start <= txn_date <= range_end:
-                    manual_in_range.append(txn)
+                    all_txns_in_range.append(txn)
             except:
                 pass
 
@@ -196,8 +149,8 @@ def render_financial():
                 so_in_range.append(o_clone)
 
         # Totals
-        extra_income = sum(float(x.get("amount", 0)) for x in manual_in_range if x.get("Type") == "Income") + sum(float(x["amount"]) for x in automated_incomes)
-        manual_expenses_total = sum(float(x.get("amount", 0)) for x in manual_in_range if x.get("Type") == "Expense")
+        extra_income = sum(float(x.get("amount", 0)) for x in all_txns_in_range if x.get("Type") == "Income")
+        manual_expenses_total = sum(float(x.get("amount", 0)) for x in all_txns_in_range if x.get("Type") == "Expense")
         total_expenses = manual_expenses_total + standing_orders_total
         net_balance = extra_income - total_expenses
 
@@ -236,7 +189,7 @@ def render_financial():
 
             with c_exp:
                 st.markdown("<h4 style='text-align: center;'>פילוח תצרוכת הוצאות</h4>", unsafe_allow_html=True)
-                exp_rows = [{"Category": item.get("name", "כללי"), "Value": float(item.get("amount", 0))} for item in manual_in_range if item.get("Type") == "Expense"]
+                exp_rows = [{"Category": item.get("name", "כללי"), "Value": float(item.get("amount", 0))} for item in all_txns_in_range if item.get("Type") == "Expense"]
                 exp_rows.extend([{"Category": o.get("name", "הוראת קבע"), "Value": float(o.get("amount", 0))} for o in so_in_range])
 
                 if exp_rows:
@@ -250,11 +203,17 @@ def render_financial():
 
             with c_inc:
                 st.markdown("<h4 style='text-align: center;'>פילוח דגמים והכנסות</h4>", unsafe_allow_html=True)
-                inc_rows = [{"Category": item.get("name", "הכנסה ידנית"), "Value": float(item.get("amount", 0))} for item in manual_in_range if item.get("Type") == "Income"]
-                for a in automated_incomes:
-                    cat_name = a.get("Item", "כללי")
-                    if str(cat_name).strip() == "": cat_name = "כללי"
-                    inc_rows.append({"Category": cat_name, "Value": float(a.get("amount", 0))})
+                inc_rows = []
+                for item in all_txns_in_range:
+                    if item.get("Type") == "Income":
+                        val = float(item.get("amount", 0))
+                        if val > 0:
+                            if item.get("is_automated"):
+                                cat_name = item.get("Item", "כללי")
+                            else:
+                                cat_name = item.get("name", "הכנסה ידנית")
+                            if str(cat_name).strip() == "": cat_name = "כללי"
+                            inc_rows.append({"Category": cat_name, "Value": val})
 
                 if inc_rows:
                     inc_df = pd.DataFrame(inc_rows).groupby("Category", as_index=False).sum()
@@ -296,13 +255,39 @@ def render_financial():
             st.markdown("### 📋 טבלת תנועות")
             
             all_historic_txns = list(finance_data.get("transactions", []))
-            for i, a_inc in enumerate(automated_incomes):
-                a_inc_copy = dict(a_inc)
-                a_inc_copy["id"] = f"auto_{i}" 
-                all_historic_txns.append(a_inc_copy)
+            auto_txns = [t for t in all_historic_txns if t.get("is_automated")]
+            manual_txns = [t for t in all_historic_txns if not t.get("is_automated")]
+
+            if auto_txns:
+                st.markdown("#### סנכרון אוטומטי מהזמנות (לקריאה בלבד)")
+                st.caption("תנועות אלו נוצרות אוטומטית ממסך ההזמנות ואינן ניתנות לעריכה מכאן.")
+                auto_df = pd.DataFrame(auto_txns)
+                auto_df["date_ts"] = pd.to_datetime(auto_df["date"], errors="coerce")
+                auto_df = auto_df.sort_values(by="date_ts", ascending=False)
                 
-            if all_historic_txns:
-                txn_df = pd.DataFrame(all_historic_txns)
+                auto_disp = auto_df[["id"]].copy()
+                auto_disp["סכום"] = auto_df["amount"]
+                auto_disp["סוג"] = auto_df["Type"].map({"Expense": "הוצאה", "Income": "הכנסה"})
+                if "icon" in auto_df.columns:
+                    auto_disp["●"] = auto_df["icon"].fillna("🟢")
+                else:
+                    auto_disp["●"] = "🟢"
+                auto_disp["תאריך"] = auto_df["date_ts"].dt.date
+                auto_disp["שם התנועה"] = auto_df["name"]
+
+                conf_auto = {
+                    "id": None,
+                    "●": st.column_config.TextColumn("", disabled=True, width="small"),
+                    "שם התנועה": st.column_config.TextColumn("שם התנועה"),
+                    "תאריך": st.column_config.DateColumn("תאריך", format="DD/MM/YYYY"),
+                    "סוג": st.column_config.TextColumn("סוג"),
+                    "סכום": st.column_config.NumberColumn("סכום", format="₪%d")
+                }
+                st.dataframe(auto_disp.drop("id", axis=1), use_container_width=True, hide_index=True, column_config=conf_auto)
+
+            if manual_txns:
+                st.markdown("#### תנועות ידניות")
+                txn_df = pd.DataFrame(manual_txns)
 
                 if st.session_state.get("delete_mode_txn", False) == True:
                     txn_df["בחרי"] = False
