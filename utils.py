@@ -66,14 +66,26 @@ def fetch_customers_from_cloud(spreadsheet):
     try:
         sheet = spreadsheet.worksheet("Customers")
         df = pd.DataFrame(sheet.get_all_records())
-        if not df.empty and "Phone Number" in df.columns:
-            df["Phone Number"] = df["Phone Number"].astype(str).apply(
-                lambda x: "0" + x if len(x) == 9 and not x.startswith("0") else x
-            )
+        if not df.empty:
+            # Ensure Phone Number is formatted correctly
+            if "Phone Number" in df.columns:
+                df["Phone Number"] = df["Phone Number"].astype(str).apply(
+                    lambda x: "0" + x if len(x) == 9 and not x.startswith("0") else x
+                )
+            # Ensure First Name and Last Name columns always exist
+            if "First Name" not in df.columns:
+                df["First Name"] = df.get("Name", "").astype(str)
+            if "Last Name" not in df.columns:
+                df["Last Name"] = ""
+            if "Notes" not in df.columns:
+                df["Notes"] = ""
+            if "Address" not in df.columns:
+                df["Address"] = ""
         else:
             df = pd.DataFrame(columns=["Phone Number", "First Name", "Last Name", "Address", "Notes"])
         return df, sheet
-    except:
+    except Exception as e:
+        st.warning(f"שגיאה בטעינת לקוחות: {e}")
         return pd.DataFrame(columns=["Phone Number", "First Name", "Last Name", "Address", "Notes"]), None
 
 

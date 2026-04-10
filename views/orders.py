@@ -24,7 +24,17 @@ def render_orders():
 
         customer_options = ["✨ לקוחה חדשה..."]
         if not customers_df.empty:
-            customer_options += [f"{r['First Name']} {r['Last Name']} ({r['Phone Number']})" for i, r in customers_df.iterrows()]
+            def _build_customer_label(r):
+                # Support both "First Name"/"Last Name" columns and a merged "Name" column
+                if "First Name" in r.index:
+                    name = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
+                elif "Name" in r.index:
+                    name = str(r.get("Name", "")).strip()
+                else:
+                    name = str(r.get("Customer Name", r.get("שם", "לא ידוע"))).strip()
+                phone = str(r.get("Phone Number", "")).strip()
+                return f"{name} ({phone})" if name else f"({phone})"
+            customer_options += [_build_customer_label(r) for _, r in customers_df.iterrows()]
 
         selected_customer = st.selectbox("עבור איזו לקוחה ההזמנה?", customer_options)
 
