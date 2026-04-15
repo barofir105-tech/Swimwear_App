@@ -138,49 +138,61 @@ def render_financial():
         # 1. Gather Automated Incomes
         automated_incomes = []
         if not orders_df.empty and "Payment Status" in orders_df.columns:
-            if "Payment Date" not in orders_df.columns:
-                orders_df["Payment Date"] = orders_df["Order Date"]
+            relevant_orders = orders_df[
+                orders_df["Payment Status"].astype(str).str.contains("💚|🟢|🧡|🟡", regex=True, na=False)
+            ].copy()
 
-            paid_orders = orders_df[orders_df["Payment Status"].isin(["💚", "🟢"])].copy()
-            if not paid_orders.empty:
-                def _get_best_date(r):
-                    p_date = str(r.get("Payment Date") or "").strip()
-                    d_date = str(r.get("Delivery Date") or "").strip()
-                    o_date = str(r.get("Order Date") or "").strip()
-                    
-                    # 1. Delivery Date (Priority for manual edits)
-                    if d_date:
-                        parsed = pd.to_datetime(d_date, format="%d/%m/%Y", errors="coerce")
-                        if pd.notnull(parsed): return parsed.date()
+            for _, ro in relevant_orders.iterrows():
+                price_val = pd.to_numeric(ro.get("Price", 0), errors="coerce")
+                if not pd.notnull(price_val) or price_val <= 0:
+                    continue
 
-                    # 2. Payment Date (Fallback)
-                    if p_date:
-                        parsed = pd.to_datetime(p_date, format="%d/%m/%Y", errors="coerce")
-                        if pd.notnull(parsed): return parsed.date()
-                        
-                    # 3. Order Date (Last Resort)
-                    parsed = pd.to_datetime(o_date, format="%d/%m/%Y", errors="coerce")
-                    return parsed.date() if pd.notnull(parsed) else None
+                price = float(price_val)
+                half_price = price / 2
+                pay_status = str(ro.get("Payment Status", "")).strip()
+                order_id = ro.get("Order ID", "?")
+                customer_name = ro.get("Customer Name", "")
+                item = str(ro.get("Item", "כללי"))
 
-                paid_orders["Parsed Date"] = paid_orders.apply(_get_best_date, axis=1)
-                paid_orders = paid_orders.dropna(subset=["Parsed Date"])
+                # Parse Order Date (for advance payment)
+                o_date_str = str(ro.get("Order Date") or "").strip()
+                order_date = pd.to_datetime(o_date_str, format="%d/%m/%Y", errors="coerce")
+                order_date = order_date.date() if pd.notnull(order_date) else None
 
-                paid_in_range = paid_orders[
-                    (paid_orders["Parsed Date"] >= range_start) & 
-                    (paid_orders["Parsed Date"] <= range_end)
-                ]
+                # Parse Delivery Date → fallback Payment Date → fallback Order Date (for balance payment)
+                d_date_str = str(ro.get("Delivery Date") or "").strip()
+                p_date_str = str(ro.get("Payment Date") or "").strip()
+                balance_date = None
+                for ds in [d_date_str, p_date_str, o_date_str]:
+                    if ds:
+                        parsed = pd.to_datetime(ds, format="%d/%m/%Y", errors="coerce")
+                        if pd.notnull(parsed):
+                            balance_date = parsed.date()
+                            break
 
-                for _, ro in paid_in_range.iterrows():
-                    price_val = pd.to_numeric(ro.get("Price", 0), errors='coerce')
-                    if pd.notnull(price_val) and price_val > 0:
+                # Advance Payment (50%) — logged on Order Date, for both 🧡 and 💚
+                if order_date and range_start <= order_date <= range_end:
+                    automated_incomes.append({
+                        "name": f"הזמנה #{order_id} - מקדמה (50%) - {customer_name}",
+                        "amount": half_price,
+                        "Type": "Income",
+                        "Item": item,
+                        "date": order_date.strftime("%Y-%m-%d"),
+                        "is_automated": True
+                    })
+
+                # Balance Payment (50%) — logged on Delivery Date, only for 💚 / 🟢
+                if any(s in pay_status for s in ["💚", "🟢"]):
+                    if balance_date and range_start <= balance_date <= range_end:
                         automated_incomes.append({
-                            "name": f"הזמנה #{ro.get('Order ID', '?')} - {ro.get('Customer Name', '')}",
-                            "amount": float(price_val),
+                            "name": f"הזמנה #{order_id} - יתרה (50%) - {customer_name}",
+                            "amount": half_price,
                             "Type": "Income",
-                            "Item": str(ro.get("Item", "כללי")),
-                            "date": ro["Parsed Date"].strftime("%Y-%m-%d"),
+                            "Item": item,
+                            "date": balance_date.strftime("%Y-%m-%d"),
                             "is_automated": True
                         })
+
 
         # 2. Gather Manual Transactions
         manual_in_range = []
