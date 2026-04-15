@@ -44,6 +44,15 @@ def render_financial():
                     pass
             save_finance_data(finance_data)
 
+        # One-time cleanup of legacy automated transactions (Phase 2 Clean-up)
+        if "transactions" in finance_data:
+            initial_count = len(finance_data["transactions"])
+            finance_data["transactions"] = [t for t in finance_data["transactions"] if not t.get("is_automated", False)]
+            if len(finance_data["transactions"]) < initial_count:
+                save_finance_data(finance_data)
+
+
+
         # UI: Dashboard View Selectors
         st.markdown("### בחירת סקירה")
         view_mode = st.radio("סוג תצוגה:", ["סקירה חודשית", "טווח תאריכים מותאם אישית"], horizontal=True, label_visibility="collapsed")
