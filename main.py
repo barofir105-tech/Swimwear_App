@@ -26,9 +26,16 @@ def check_password():
 
     app_password = st.secrets.get("app_password")
 
-    # Check persistent cookie first — skip login UI if valid
-    if controller.get("auth_token") == app_password:
+    # Read cookie once — handles async sync on refresh
+    cookie_val = controller.get("auth_token")
+
+    # If cookie is valid but session hasn't caught up yet, sync and rerun
+    if cookie_val == app_password and not st.session_state["authenticated"]:
         st.session_state["authenticated"] = True
+        st.rerun()
+
+    # Already authenticated (session set either above or in a prior run)
+    if st.session_state["authenticated"]:
         return
 
     def password_entered():
@@ -40,42 +47,42 @@ def check_password():
         else:
             st.session_state["authenticated"] = False
 
-    if not st.session_state["authenticated"]:
-        # Centered Login Card UI
-        _, col_mid, _ = st.columns([1, 1.5, 1])
-        with col_mid:
-            st.markdown("<br><br>", unsafe_allow_html=True)
+    # Centered Login Card UI
+    _, col_mid, _ = st.columns([1, 1.5, 1])
+    with col_mid:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        
+        # Login Card Container
+        with st.container(border=True):
+            # Branding
+            try:
+                st.image("photos/logo.png", use_container_width=True)
+            except:
+                st.markdown("<h1 style='text-align: center; color: #6366f1;'>👙 Kalimi Manager</h1>", unsafe_allow_html=True)
             
-            # Login Card Container
-            with st.container(border=True):
-                # Branding
-                try:
-                    st.image("photos/logo.png", use_container_width=True)
-                except:
-                    st.markdown("<h1 style='text-align: center; color: #6366f1;'>👙 Kalimi Manager</h1>", unsafe_allow_html=True)
-                
-                st.markdown("<h4 style='text-align: center; margin-bottom: 1.5rem;'>התחברי למערכת הניהול</h4>", unsafe_allow_html=True)
-                
-                # Password Input
-                st.text_input(
-                    "סיסמת גישה", 
-                    type="password", 
-                    on_change=password_entered, 
-                    key="password",
-                    placeholder="הקלידי סיסמה..."
-                )
-                
-                # Manual Login Button
-                if st.button("🚀 כניסה למערכת", use_container_width=True, type="primary"):
-                    password_entered()
-                    if st.session_state["authenticated"]:
-                        st.rerun()
-                
-                if "password" in st.session_state and not st.session_state["authenticated"]:
-                    st.error("❌ הסיסמה אינה נכונה. נסי שוב.")
+            st.markdown("<h4 style='text-align: center; margin-bottom: 1.5rem;'>התחברי למערכת הניהול</h4>", unsafe_allow_html=True)
             
-            st.markdown("<p style='text-align: center; font-size: 0.8rem; color: #9ca3af; margin-top: 2rem;'>© 2024 Kalimi Swimwear Manager</p>", unsafe_allow_html=True)
-            st.stop()
+            # Password Input
+            st.text_input(
+                "סיסמת גישה", 
+                type="password", 
+                on_change=password_entered, 
+                key="password",
+                placeholder="הקלידי סיסמה..."
+            )
+            
+            # Manual Login Button
+            if st.button("🚀 כניסה למערכת", use_container_width=True, type="primary"):
+                password_entered()
+                if st.session_state["authenticated"]:
+                    st.rerun()
+            
+            if "password" in st.session_state and not st.session_state["authenticated"]:
+                st.error("❌ הסיסמה אינה נכונה. נסי שוב.")
+        
+        st.markdown("<p style='text-align: center; font-size: 0.8rem; color: #9ca3af; margin-top: 2rem;'>© 2024 Kalimi Swimwear Manager</p>", unsafe_allow_html=True)
+        st.stop()
+
 
 # Trigger authentication before any other logic
 check_password()
