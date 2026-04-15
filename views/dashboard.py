@@ -25,37 +25,59 @@ def render_dashboard():
     ready_pickup  = len(orders_df[orders_df["Status"] == "📦 מוכנה לאיסוף/משלוח"]) if not orders_df.empty else 0
     total_customers = len(customers_df) if not customers_df.empty else 0
 
-    # Monthly revenue (current month, paid orders) - matching financial.py attribution
+    # Monthly revenue (current month, 50/50 split logic matching financial.py)
     monthly_rev = 0.0
-    if not orders_df.empty and "Payment Status" in orders_df.columns:
-        now = datetime.now()
-        cur_month = now.month
-        cur_year = now.year
-        
-        paid = orders_df[orders_df["Payment Status"].isin(["🟢", "💚"])].copy()
-        if not paid.empty:
-            def _get_best_date(r):
-                p_date = str(r.get("Payment Date") or "").strip()
-                d_date = str(r.get("Delivery Date") or "").strip()
-                o_date = str(r.get("Order Date") or "").strip()
-                if d_date:
-                    parsed = pd.to_datetime(d_date, format="%d/%m/%Y", errors="coerce")
-                    if pd.notnull(parsed): return parsed.date()
-                if p_date:
-                    parsed = pd.to_datetime(p_date, format="%d/%m/%Y", errors="coerce")
-                    if pd.notnull(parsed): return parsed.date()
-                parsed = pd.to_datetime(o_date, format="%d/%m/%Y", errors="coerce")
-                return parsed.date() if pd.notnull(parsed) else None
+    now = datetime.now()
+    month_start = date(now.year, now.month, 1)
+    from calendar import monthrange
+    _, last_day = monthrange(now.year, now.month)
+    month_end = date(now.year, now.month, last_day)
 
-            paid["_best_date"] = paid.apply(_get_best_date, axis=1)
-            paid = paid.dropna(subset=["_best_date"])
-            
-            # Filter for CURRENT month
-            this_month_orders = paid[
-                (paid["_best_date"].apply(lambda d: d.month) == cur_month) & 
-                (paid["_best_date"].apply(lambda d: d.year) == cur_year)
-            ]
-            monthly_rev = pd.to_numeric(this_month_orders.get("Price", 0), errors="coerce").fillna(0).sum()
+    # Manual incomes from finance_data transactions
+    for txn in finance_data.get("transactions", []):
+        if txn.get("Type") == "Income":
+            try:
+                txn_date = datetime.strptime(txn.get("date", ""), "%Y-%m-%d").date()
+                if month_start <= txn_date <= month_end:
+                    monthly_rev += float(txn.get("amount", 0))
+            except:
+                pass
+
+    # Automated incomes from orders (50/50 split)
+    if not orders_df.empty and "Payment Status" in orders_df.columns:
+        relevant = orders_df[
+            orders_df["Payment Status"].astype(str).str.contains("💚|🟢|🧡|🟡", regex=True, na=False)
+        ].copy()
+
+        for _, ro in relevant.iterrows():
+            price_val = pd.to_numeric(ro.get("Price", 0), errors="coerce")
+            if not pd.notnull(price_val) or price_val <= 0:
+                continue
+            half_price = float(price_val) / 2
+            pay_status = str(ro.get("Payment Status", "")).strip()
+
+            # Parse Order Date (advance payment date)
+            o_date = pd.to_datetime(str(ro.get("Order Date") or ""), format="%d/%m/%Y", errors="coerce")
+            order_date = o_date.date() if pd.notnull(o_date) else None
+
+            # Parse Delivery Date → fallback Payment Date → fallback Order Date (balance payment date)
+            balance_date = None
+            for ds in [str(ro.get("Delivery Date") or ""), str(ro.get("Payment Date") or ""), str(ro.get("Order Date") or "")]:
+                if ds.strip():
+                    parsed = pd.to_datetime(ds, format="%d/%m/%Y", errors="coerce")
+                    if pd.notnull(parsed):
+                        balance_date = parsed.date()
+                        break
+
+            # Advance payment (50%) on Order Date — both 🧡 and 💚
+            if order_date and month_start <= order_date <= month_end:
+                monthly_rev += half_price
+
+            # Balance payment (50%) on Delivery Date — only 💚 / 🟢
+            if any(s in pay_status for s in ["💚", "🟢"]):
+                if balance_date and month_start <= balance_date <= month_end:
+                    monthly_rev += half_price
+
 
     with k1:
         st.markdown("""<div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:12px;padding:18px 14px;text-align:center;color:white;">
