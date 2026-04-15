@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from utils import get_next_order_id, sync_order_to_finance, save_finance_data
+from utils import get_next_order_id, save_finance_data
 
 
 def render_orders():
@@ -389,9 +389,7 @@ def render_orders():
                     else:
                         inventory_sheet.update([inv_save_df.columns.values.tolist()] + inv_save_df.values.tolist())
 
-                changed_f = sync_order_to_finance(order_row_dict, st.session_state.finance_data)
-                if changed_f:
-                    save_finance_data(st.session_state.finance_data)
+
 
                 st.toast(f"הזמנה {order_id} נוצרה ונשמרה בהצלחה!", icon="✅"); st.rerun()
         st.markdown("---")
@@ -592,15 +590,7 @@ def render_orders():
                                     
                                     orders_sheet.update([save_df.columns.values.tolist()] + save_df.values.tolist())
 
-                                any_f_changes = False
-                                for _, d_row in deleted_full_rows.iterrows():
-                                    d_dict = d_row.to_dict()
-                                    d_dict["Payment Status"] = "🔴"
-                                    d_dict["Price"] = 0.0
-                                    if sync_order_to_finance(d_dict, st.session_state.finance_data):
-                                        any_f_changes = True
-                                if any_f_changes:
-                                    save_finance_data(st.session_state.finance_data)
+
 
                                 st.session_state.delete_mode_orders = False
                                 st.toast("ההזמנות נמחקו!", icon="✅"); st.rerun()
@@ -628,7 +618,7 @@ def render_orders():
                                 orders_indexed = orders_df.set_index("Order ID")
                                 save_indexed = save_orders.set_index("Order ID")
 
-                                any_f_changes_edit = False
+
                                 today_str = datetime.now().strftime("%d/%m/%Y")
                                 for o_id, row in save_indexed.iterrows():
                                     # --- עדכון מלאי על שינוי סטטוס ---
@@ -678,8 +668,7 @@ def render_orders():
                                     # Sync finance
                                     row_dict = row.to_dict()
                                     row_dict["Order ID"] = o_id
-                                    if sync_order_to_finance(row_dict, st.session_state.finance_data):
-                                        any_f_changes_edit = True
+
 
                                 orders_indexed.update(save_indexed)
                                 orders_indexed.reset_index(inplace=True)
@@ -704,8 +693,7 @@ def render_orders():
                                 orders_sheet.clear()
                                 orders_sheet.update([final_save_df.columns.values.tolist()] + final_save_df.values.tolist())
                                 
-                                if any_f_changes_edit:
-                                    save_finance_data(st.session_state.finance_data)
+
 
                                 st.toast("נשמר בהצלחה!", icon="✅"); st.rerun()
 
