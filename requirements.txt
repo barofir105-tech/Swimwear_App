@@ -5,3 +5,4 @@ google-auth
 Pillow
 plotly
 openpyxl
+streamlit-cookies-controller
