@@ -6,6 +6,7 @@ Handles: page config, global CSS, Google Sheets connection,
 
 import streamlit as st
 import pandas as pd
+from streamlit_cookies_controller import CookieController
 
 # ── Page config (MUST be first Streamlit call) ─────────────────────────
 st.set_page_config(page_title="Kalimi Manager", page_icon="👙", layout="wide")
@@ -14,16 +15,26 @@ st.set_page_config(page_title="Kalimi Manager", page_icon="👙", layout="wide")
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
+controller = CookieController()
+
 def check_password():
-    """Returns True if the user had the correct password."""
+    """Returns True if the user is authenticated (via cookie or password)."""
     # Ensure the secret exists to avoid KeyError
     if "app_password" not in st.secrets:
         st.error("⚠️ שגיאה: המפתח 'app_password' לא מוגדר ב-Secrets של האפליקציה. אנא הגדירי אותו בהגדרות ה-Cloud או ב-secrets.toml המקומי.")
         st.stop()
 
+    app_password = st.secrets.get("app_password")
+
+    # Check persistent cookie first — skip login UI if valid
+    if controller.get("auth_token") == app_password:
+        st.session_state["authenticated"] = True
+        return
+
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if st.session_state.get("password") == st.secrets.get("app_password"):
+        if st.session_state.get("password") == app_password:
+            controller.set("auth_token", app_password, max_age=86400)  # 24 hours
             st.session_state["authenticated"] = True
             del st.session_state["password"]  # don't store password
         else:
