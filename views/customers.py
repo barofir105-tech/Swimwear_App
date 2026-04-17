@@ -174,7 +174,15 @@ def render_customer_card():
             # Customer KPIs from orders
             cust_orders = orders_df[orders_df["Phone Number"] == st.session_state.selected_customer_phone] if not orders_df.empty else pd.DataFrame()
             total_cust_orders = len(cust_orders)
-            total_spent = pd.to_numeric(cust_orders["Price"], errors="coerce").fillna(0).sum() if not cust_orders.empty and "Price" in cust_orders.columns else 0
+            total_spent = 0
+            if not cust_orders.empty and "Price" in cust_orders.columns:
+                for _, o_row in cust_orders.iterrows():
+                    p = float(pd.to_numeric(o_row.get("Price", 0), errors="coerce") or 0)
+                    s = str(o_row.get("Payment Status", ""))
+                    if any(emoji in s for emoji in ["🧡", "🟡"]):
+                        total_spent += p * 0.5
+                    elif any(emoji in s for emoji in ["💚", "🟢"]):
+                        total_spent += p
             active_cust = len(cust_orders[cust_orders["Status"] != "✅ נמסרה ללקוחה"]) if not cust_orders.empty and "Status" in cust_orders.columns else 0
 
             # Hero header
