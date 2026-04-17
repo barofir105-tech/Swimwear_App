@@ -702,7 +702,7 @@ def render_orders():
                                     "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
                                     "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                                     "Swimsuit Type", "Pattern", "Order Notes",
-                                    "Status", "Payment Status", "Supply Type", "Price", "Payment Date"
+                                    "Status", "Payment Status", "Supply Type", "Price", "Payment Date", "Bypass Inventory"
                                 ]]
 
                                 # Sanitize for Google Sheets/JSON
