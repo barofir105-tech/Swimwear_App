@@ -176,13 +176,15 @@ def render_customer_card():
             total_cust_orders = len(cust_orders)
             total_spent = 0
             if not cust_orders.empty and "Price" in cust_orders.columns:
-                for _, o_row in cust_orders.iterrows():
-                    p = float(pd.to_numeric(o_row.get("Price", 0), errors="coerce") or 0)
-                    s = str(o_row.get("Payment Status", ""))
-                    if any(emoji in s for emoji in ["🧡", "🟡"]):
-                        total_spent += p * 0.5
-                    elif any(emoji in s for emoji in ["💚", "🟢"]):
-                        total_spent += p
+                for _, r in cust_orders.iterrows():
+                    p_val = pd.to_numeric(r.get("Price", 0), errors="coerce")
+                    if pd.isna(p_val): 
+                        p_val = 0
+                    p_stat = str(r.get("Payment Status", ""))
+                    if "💚" in p_stat or "🟢" in p_stat:
+                        total_spent += p_val
+                    elif "🧡" in p_stat or "🟡" in p_stat:
+                        total_spent += (p_val / 2)
             active_cust = len(cust_orders[cust_orders["Status"] != "✅ נמסרה ללקוחה"]) if not cust_orders.empty and "Status" in cust_orders.columns else 0
 
             # Hero header
