@@ -626,39 +626,56 @@ def render_orders():
 
                                 today_str = datetime.now().strftime("%d/%m/%Y")
                                 for o_id, row in save_indexed.iterrows():
-                                    # --- עדכון מלאי על שינוי סטטוס ---
+                                    # --- עדכון מלאי: Revert Old, Apply New ---
                                     if o_id in orders_indexed.index:
                                         old_row = orders_indexed.loc[o_id]
                                         new_status = str(row["Status"]).strip()
                                         old_status = str(old_row["Status"]).strip()
                                         is_p_new = any(kw in new_status for kw in ["התקבלה", "ממתינה"])
                                         is_p_old = any(kw in old_status for kw in ["התקבלה", "ממתינה"])
-                                        
-                                        if is_p_new != is_p_old:
-                                            bypass = str(old_row.get("Bypass Inventory", "")).strip().lower() == "true"
-                                            if not bypass:
-                                                inv = st.session_state.inventory_df
-                                                inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
-                                                inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
-                                                
-                                                for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
-                                                    f_name = str(old_row.get(f_col, "")).strip()
-                                                    usage = pd.to_numeric(old_row.get(u_col, 0.0), errors="coerce")
-                                                    if f_name and usage > 0:
-                                                        mask = inv["Fabric Name"] == f_name
-                                                        if mask.any():
-                                                            if is_p_old and not is_p_new: # Pending -> Cut
-                                                                inv.loc[mask, "Initial Meters"] -= float(usage)
-                                                                inv.loc[mask, "Reserved Meters"] -= float(usage)
-                                                            elif not is_p_old and is_p_new: # Cut -> Pending
-                                                                inv.loc[mask, "Initial Meters"] += float(usage)
-                                                                inv.loc[mask, "Reserved Meters"] += float(usage)
-                                                
-                                                st.session_state.inventory_df = inv
-                                                if inventory_sheet:
-                                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
-                                                    inventory_sheet.clear()
-                                                    inventory_sheet.update([inv_save.columns.values.tolist()] + inv_save.values.tolist())
+
+                                        old_bypass = str(old_row.get("Bypass Inventory", "")).strip().lower() == "true"
+                                        new_bypass = str(row.get("Bypass Inventory", "")).strip().lower() == "true"
+
+                                        inv = st.session_state.inventory_df
+                                        inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
+                                        inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
+
+                                        # --- REVERT OLD STATE ---
+                                        if not old_bypass:
+                                            for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
+                                                f_name = str(old_row.get(f_col, "")).strip()
+                                                usage = pd.to_numeric(old_row.get(u_col, 0.0), errors="coerce")
+                                                if f_name and float(usage or 0) > 0:
+                                                    mask = inv["Fabric Name"] == f_name
+                                                    if mask.any():
+                                                        if is_p_old:
+                                                            # Was pending: undo reservation
+                                                            inv.loc[mask, "Reserved Meters"] -= float(usage)
+                                                        else:
+                                                            # Was cut: restore physical stock
+                                                            inv.loc[mask, "Initial Meters"] += float(usage)
+
+                                        # --- APPLY NEW STATE ---
+                                        if not new_bypass:
+                                            for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
+                                                f_name = str(row.get(f_col, "")).strip()
+                                                usage = pd.to_numeric(row.get(u_col, 0.0), errors="coerce")
+                                                if f_name and float(usage or 0) > 0:
+                                                    mask = inv["Fabric Name"] == f_name
+                                                    if mask.any():
+                                                        if is_p_new:
+                                                            # Is pending: add reservation
+                                                            inv.loc[mask, "Reserved Meters"] += float(usage)
+                                                        else:
+                                                            # Is cut: deduct physical stock
+                                                            inv.loc[mask, "Initial Meters"] -= float(usage)
+
+                                        st.session_state.inventory_df = inv
+                                        if inventory_sheet:
+                                            inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
+                                            inventory_sheet.clear()
+                                            inventory_sheet.update([inv_save.columns.values.tolist()] + inv_save.values.tolist())
 
                                     if row["Payment Status"] == "💚":
                                         old_status = orders_indexed.loc[o_id, "Payment Status"] if o_id in orders_indexed.index else ""
