@@ -635,40 +635,39 @@ def render_orders():
                                         is_p_old = any(kw in old_status for kw in ["התקבלה", "ממתינה"])
 
                                         old_bypass = str(old_row.get("Bypass Inventory", "")).strip().lower() == "true"
-                                        new_bypass = str(row.get("Bypass Inventory", "")).strip().lower() == "true"
+                                        # Fallback to old_row if column is hidden
+                                        new_bypass_val = row.get("Bypass Inventory", old_row.get("Bypass Inventory", ""))
+                                        new_bypass = str(new_bypass_val).strip().lower() == "true"
 
                                         inv = st.session_state.inventory_df
                                         inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
                                         inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
 
-                                        # --- REVERT OLD STATE ---
+                                        # 1. REVERT OLD STATE
                                         if not old_bypass:
                                             for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
                                                 f_name = str(old_row.get(f_col, "")).strip()
                                                 usage = pd.to_numeric(old_row.get(u_col, 0.0), errors="coerce")
-                                                if f_name and float(usage or 0) > 0:
+                                                if f_name and usage > 0:
                                                     mask = inv["Fabric Name"] == f_name
                                                     if mask.any():
                                                         if is_p_old:
-                                                            # Was pending: undo reservation
                                                             inv.loc[mask, "Reserved Meters"] -= float(usage)
                                                         else:
-                                                            # Was cut: restore physical stock
                                                             inv.loc[mask, "Initial Meters"] += float(usage)
 
-                                        # --- APPLY NEW STATE ---
+                                        # 2. APPLY NEW STATE
                                         if not new_bypass:
                                             for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
-                                                f_name = str(row.get(f_col, "")).strip()
-                                                usage = pd.to_numeric(row.get(u_col, 0.0), errors="coerce")
-                                                if f_name and float(usage or 0) > 0:
+                                                # Fallback to old_row if columns are hidden in the UI
+                                                f_name = str(row.get(f_col, old_row.get(f_col, ""))).strip()
+                                                usage = pd.to_numeric(row.get(u_col, old_row.get(u_col, 0.0)), errors="coerce")
+                                                if f_name and usage > 0:
                                                     mask = inv["Fabric Name"] == f_name
                                                     if mask.any():
                                                         if is_p_new:
-                                                            # Is pending: add reservation
                                                             inv.loc[mask, "Reserved Meters"] += float(usage)
                                                         else:
-                                                            # Is cut: deduct physical stock
                                                             inv.loc[mask, "Initial Meters"] -= float(usage)
 
                                         st.session_state.inventory_df = inv
