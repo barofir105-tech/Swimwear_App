@@ -320,15 +320,67 @@ def render_customer_card():
                                     "בד": "Fabric", "צריכת בד": "Fabric Usage", "בד 2": "Fabric 2", "צריכת בד 2": "Fabric Usage 2"
                                 })
 
-                                orders_indexed = orders_df.set_index("Order ID")
+                                orders_indexed_orig = orders_df.set_index("Order ID")
                                 save_indexed = save_orders.set_index("Order ID")
-                                orders_indexed.update(save_indexed)
-                                orders_indexed.reset_index(inplace=True)
+
+                                # --- עדכון מלאי: Revert Old, Apply New ---
+                                inventory_sheet = st.session_state.inventory_sheet
+                                inv = st.session_state.inventory_df
+                                inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
+                                inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
+
+                                for o_id, new_row in save_indexed.iterrows():
+                                    if o_id not in orders_indexed_orig.index:
+                                        continue
+                                    old_row = orders_indexed_orig.loc[o_id]
+
+                                    old_status = str(old_row.get("Status", "")).strip()
+                                    new_status = str(new_row.get("Status", "")).strip()
+                                    is_p_old = any(kw in old_status for kw in ["התקבלה", "ממתינה"])
+                                    is_p_new = any(kw in new_status for kw in ["התקבלה", "ממתינה"])
+
+                                    old_bypass = str(old_row.get("Bypass Inventory", "")).strip().lower() == "true"
+                                    new_bypass = str(new_row.get("Bypass Inventory", "")).strip().lower() == "true"
+
+                                    # REVERT OLD STATE
+                                    if not old_bypass:
+                                        for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
+                                            f_name = str(old_row.get(f_col, "")).strip()
+                                            usage = pd.to_numeric(old_row.get(u_col, 0.0), errors="coerce")
+                                            if f_name and float(usage or 0) > 0:
+                                                mask = inv["Fabric Name"] == f_name
+                                                if mask.any():
+                                                    if is_p_old:
+                                                        inv.loc[mask, "Reserved Meters"] -= float(usage)
+                                                    else:
+                                                        inv.loc[mask, "Initial Meters"] += float(usage)
+
+                                    # APPLY NEW STATE
+                                    if not new_bypass:
+                                        for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
+                                            f_name = str(new_row.get(f_col, "")).strip()
+                                            usage = pd.to_numeric(new_row.get(u_col, 0.0), errors="coerce")
+                                            if f_name and float(usage or 0) > 0:
+                                                mask = inv["Fabric Name"] == f_name
+                                                if mask.any():
+                                                    if is_p_new:
+                                                        inv.loc[mask, "Reserved Meters"] += float(usage)
+                                                    else:
+                                                        inv.loc[mask, "Initial Meters"] -= float(usage)
+
+                                st.session_state.inventory_df = inv
+                                if inventory_sheet:
+                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
+                                    inventory_sheet.clear()
+                                    inventory_sheet.update([inv_save.columns.values.tolist()] + inv_save.values.tolist())
+
+                                orders_indexed_orig.update(save_indexed)
+                                orders_indexed_orig.reset_index(inplace=True)
 
                                 for col in ["Payment Date", "Swimsuit Type", "Pattern", "Top Cut", "Bottom Cut", "Order Notes", "Fabric 2", "Fabric Usage 2", "Bypass Inventory"]:
-                                    if col not in orders_indexed.columns:
-                                        orders_indexed[col] = ""
-                                final_save = orders_indexed[[
+                                    if col not in orders_indexed_orig.columns:
+                                        orders_indexed_orig[col] = ""
+                                final_save = orders_indexed_orig[[
                                     "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
                                     "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
                                     "Swimsuit Type", "Pattern", "Order Notes",
