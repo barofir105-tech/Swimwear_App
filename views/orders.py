@@ -281,13 +281,18 @@ def render_orders():
                 if not bypass_inventory:
                     inv_current = st.session_state.inventory_df.copy()
                     inv_current["Initial Meters"] = pd.to_numeric(inv_current["Initial Meters"], errors="coerce").fillna(0.0)
+                    inv_current["Reserved Meters"] = pd.to_numeric(inv_current.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
                     for fab_name, req_m in usage_map.items():
                         row = inv_current[inv_current["Fabric Name"] == fab_name]
                         if row.empty:
                             st.error(f"הבד '{fab_name}' לא נמצא במלאי."); st.stop()
-                        available = float(row.iloc[0]["Initial Meters"])
-                        if req_m > available:
-                            st.error(f"❌ הבד '{fab_name}' חסר במלאי! כמות זמינה: {available:.2f} מ', נדרש: {req_m:.2f} מ'."); st.stop()
+                        
+                        initial = float(row.iloc[0]["Initial Meters"])
+                        reserved = float(row.iloc[0]["Reserved Meters"])
+                        true_available = initial - reserved
+                        
+                        if req_m > true_available:
+                            st.error(f"❌ הבד '{fab_name}' חסר במלאי! כמות זמינה: {true_available:.2f} מ', נדרש: {req_m:.2f} מ'."); st.stop()
 
                 if selected_customer == "✨ לקוחה חדשה...":
                     if not new_c_fname or not new_c_phone:
