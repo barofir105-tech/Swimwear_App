@@ -667,12 +667,6 @@ def render_orders():
                                                         else:
                                                             inv.loc[mask, "Initial Meters"] -= float(usage)
 
-                                        st.session_state.inventory_df = inv
-                                        if inventory_sheet:
-                                            inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
-                                            inv_save_clean = inv_save.astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
-                                            inventory_sheet.clear()
-                                            inventory_sheet.update([inv_save_clean.columns.values.tolist()] + inv_save_clean.values.tolist())
 
                                     if row["Payment Status"] == "💚":
                                         old_status = orders_indexed.loc[o_id, "Payment Status"] if o_id in orders_indexed.index else ""
@@ -687,7 +681,12 @@ def render_orders():
                                     # Sync finance
                                     row_dict = row.to_dict()
                                     row_dict["Order ID"] = o_id
-
+                                st.session_state.inventory_df = inv
+                                if inventory_sheet:
+                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
+                                    inv_save_clean = inv_save.astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
+                                    inventory_sheet.clear()
+                                    inventory_sheet.update([inv_save_clean.columns.values.tolist()] + inv_save_clean.values.tolist())
 
                                 orders_indexed.update(save_indexed)
                                 orders_indexed.reset_index(inplace=True)
