@@ -386,13 +386,10 @@ def render_orders():
                     ])
 
                 if inventory_sheet is not None:
-                    inv_save_df = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"]].copy()
-                    inv_save_df["Image URL"] = inv_save_df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
+                    inv_save = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
+                    inv_save_clean = inv_save.astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
                     inventory_sheet.clear()
-                    if inv_save_df.empty:
-                        inventory_sheet.update([["Fabric ID", "Fabric Name", "Initial Meters", "Image URL"]])
-                    else:
-                        inventory_sheet.update([inv_save_df.columns.values.tolist()] + inv_save_df.values.tolist())
+                    inventory_sheet.update([inv_save_clean.columns.values.tolist()] + inv_save_clean.values.tolist())
 
 
 
@@ -673,10 +670,7 @@ def render_orders():
                                         st.session_state.inventory_df = inv
                                         if inventory_sheet:
                                             inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
-                                            inv_save_clean = inv_save.fillna("")
-                                            for col in inv_save_clean.columns:
-                                                if inv_save_clean[col].dtype == "object":
-                                                    inv_save_clean[col] = inv_save_clean[col].astype(str).replace("nan", "").replace("None", "")
+                                            inv_save_clean = inv_save.astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
                                             inventory_sheet.clear()
                                             inventory_sheet.update([inv_save_clean.columns.values.tolist()] + inv_save_clean.values.tolist())
 
@@ -709,11 +703,7 @@ def render_orders():
                                 ]]
 
                                 # Sanitize for Google Sheets/JSON
-                                final_save_df = final_save.copy().fillna("")
-                                for col in final_save_df.columns:
-                                    if final_save_df[col].dtype == "object":
-                                        final_save_df[col] = final_save_df[col].astype(str).replace("nan", "").replace("None", "")
-
+                                final_save_df = final_save.copy().astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
                                 st.session_state.orders_df = final_save
                                 orders_sheet.clear()
                                 orders_sheet.update([final_save_df.columns.values.tolist()] + final_save_df.values.tolist())
