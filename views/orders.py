@@ -621,6 +621,11 @@ def render_orders():
                                 save_indexed = save_orders.set_index("Order ID")
 
 
+                                # אתחול מלאי לפני הלולאה - מבטיח ש-inv תמיד מוגדר
+                                inv = st.session_state.inventory_df
+                                inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
+                                inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
+
                                 today_str = datetime.now().strftime("%d/%m/%Y")
                                 for o_id, row in save_indexed.iterrows():
                                     # --- עדכון מלאי: Revert Old, Apply New ---
@@ -635,10 +640,6 @@ def render_orders():
                                         # Fallback to old_row if column is hidden
                                         new_bypass_val = row.get("Bypass Inventory", old_row.get("Bypass Inventory", ""))
                                         new_bypass = str(new_bypass_val).strip().lower() == "true"
-
-                                        inv = st.session_state.inventory_df
-                                        inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
-                                        inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
 
                                         # 1. REVERT OLD STATE
                                         if not old_bypass:
@@ -667,7 +668,6 @@ def render_orders():
                                                         else:
                                                             inv.loc[mask, "Initial Meters"] -= float(usage)
 
-
                                     if row["Payment Status"] == "💚":
                                         old_status = orders_indexed.loc[o_id, "Payment Status"] if o_id in orders_indexed.index else ""
                                         current_p_date = str(row.get("Payment Date", "")).strip()
@@ -681,6 +681,7 @@ def render_orders():
                                     # Sync finance
                                     row_dict = row.to_dict()
                                     row_dict["Order ID"] = o_id
+
                                 st.session_state.inventory_df = inv
                                 if inventory_sheet:
                                     inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
