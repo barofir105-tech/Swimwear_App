@@ -88,6 +88,12 @@ def render_inventory():
 
                     st.caption("💡 טיפ: ניתן ללחוץ על הטקסטים במסך ולערוך את נתוני המלאי או המק\"ט תוך כדי תנועה!")
 
+                    # וידוא טיפוסי נתונים עבור ה-data_editor למניעת שגיאת StreamlitAPIException
+                    df_view["מק\"ט"] = df_view["מק\"ט"].astype(str)
+                    df_view["שם הבד/צבע"] = df_view["שם הבד/צבע"].astype(str)
+                    df_view["כמות בארגז (מ')"] = pd.to_numeric(df_view["כמות בארגז (מ')"], errors="coerce")
+                    df_view["כמות זמינה (מ')"] = pd.to_numeric(df_view["כמות זמינה (מ')"], errors="coerce")
+
                     # שימוש באפשרות ההרחבה לגובה שורות כדי לוודא תמונה גדולה (לפחות 100px)
                     edited_inv = st.data_editor(
                         df_view, 
