@@ -453,7 +453,7 @@ def render_orders():
                 "התאמות": st.column_config.TextColumn("התאמות", width="small", alignment="right"),
                 "סטטוס": st.column_config.SelectboxColumn("סטטוס", options=["🆕 התקבלה (ממתינה להכנה)", "✂️ בגזירה/תפירה", "📦 מוכנה לאיסוף/משלוח", "✅ נמסרה ללקוחה"], width="medium"),
                 "תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
-                "מחיר": st.column_config.NumberColumn("מחיר", format="₪%d", width="small", alignment="right"),
+                "מחיר": st.column_config.NumberColumn("מחיר", format="₪%.2f", width="small", alignment="right"),
                 "עליון": st.column_config.TextColumn("עליון", width="small", alignment="right"),
                 "תחתון": st.column_config.TextColumn("תחתון", width="small", alignment="right"),
                 "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small", alignment="right"),

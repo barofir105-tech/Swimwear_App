@@ -78,8 +78,8 @@ def render_inventory():
                     config = {
                         "שם הבד/צבע": st.column_config.TextColumn("שם הבד/צבע", alignment="right"),
                         "מק\"ט": st.column_config.TextColumn("מק\"ט", width="small", alignment="right"),
-                        "כמות בארגז (מ')": st.column_config.NumberColumn("בארגז (מ')", format="%g", width="small", alignment="right"),
-                        "כמות זמינה (מ')": st.column_config.NumberColumn("זמין (מ')", format="%g", width="small", alignment="right"),
+                        "כמות בארגז (מ')": st.column_config.NumberColumn("בארגז (מ')", format="%.2f", width="small", alignment="right"),
+                        "כמות זמינה (מ')": st.column_config.NumberColumn("זמין (מ')", format="%.2f", width="small", alignment="right"),
                         "תמונה": st.column_config.ImageColumn("תמונה", width="small"),
                         "_Original_Index": None,
                     }

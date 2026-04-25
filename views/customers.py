@@ -275,15 +275,15 @@ def render_customer_card():
                         "התאמות": st.column_config.TextColumn("התאמות", width="small"),
                         "סטטוס": st.column_config.SelectboxColumn("סטטוס", options=["🆕 התקבלה (ממתינה להכנה)", "✂️ בגזירה/תפירה", "📦 מוכנה לאיסוף/משלוח", "✅ נמסרה ללקוחה"], width="medium"),
                         "תשלום": st.column_config.SelectboxColumn("תשלום", options=["🔴", "🧡", "💚"], width="small"),
-                        "מחיר": st.column_config.NumberColumn("מחיר", format="₪%d", width="small"),
+                        "מחיר": st.column_config.NumberColumn("מחיר", format="₪%.2f", width="small"),
                         "עליון": st.column_config.TextColumn("עליון", width="small"),
                         "תחתון": st.column_config.TextColumn("תחתון", width="small"),
                         "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
                         "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small"),
                         "בד": st.column_config.TextColumn("בד", width="small"),
-                        "צריכת בד": st.column_config.NumberColumn("צריכת בד", width="small"),
+                        "צריכת בד": st.column_config.NumberColumn("צריכת בד", format="%.2f", width="small"),
                         "בד 2": st.column_config.TextColumn("בד 2", width="small"),
-                        "צריכת בד 2": st.column_config.NumberColumn("צריכת בד 2", width="small")
+                        "צריכת בד 2": st.column_config.NumberColumn("צריכת בד 2", format="%.2f", width="small")
                     }
 
                     active_mask_cust = display_cust_orders["סטטוס"] != "✅ נמסרה ללקוחה"

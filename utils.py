@@ -204,23 +204,19 @@ def get_calculated_inventory():
     
     if "Initial Meters" not in inv_df.columns:
         inv_df["Initial Meters"] = 0.0
-    inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).astype(float)
-    
-    if "Reserved Meters" not in inv_df.columns:
-        inv_df["Reserved Meters"] = 0.0
-    inv_df["Reserved Meters"] = pd.to_numeric(inv_df["Reserved Meters"], errors="coerce").fillna(0.0).astype(float)
-    
+    inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).round(2)
+    inv_df["Reserved Meters"] = pd.to_numeric(inv_df["Reserved Meters"], errors="coerce").fillna(0.0).round(2)
+
     # Calculate display columns
-    inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"]
-    inv_df["כמות זמינה (מ')"] = inv_df["Initial Meters"] - inv_df["Reserved Meters"]
-    
+    inv_df["כמות בארגז (מ')"] = inv_df["Initial Meters"].round(2)
+    inv_df["כמות זמינה (מ')"] = (inv_df["Initial Meters"] - inv_df["Reserved Meters"]).round(2)
+
     # Rule 3 Enforcement (Hard Cap/Safety Override)
-    # If Reserved < 0 (Available > Box), set Available = Box (Reserved = 0)
     mask_over = inv_df["כמות זמינה (מ')"] > inv_df["כמות בארגז (מ')"]
     if mask_over.any():
         inv_df.loc[mask_over, "כמות זמינה (מ')"] = inv_df.loc[mask_over, "כמות בארגז (מ')"]
         inv_df.loc[mask_over, "Reserved Meters"] = 0.0
-    
+
     return inv_df
 
 
@@ -312,8 +308,8 @@ def update_inventory_for_order(inv_df: pd.DataFrame, old_row, new_row) -> pd.Dat
     -------
     The same (mutated) ``inv_df`` for convenience.
     """
-    inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0)
-    inv_df["Reserved Meters"] = pd.to_numeric(inv_df.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
+    inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0).round(2)
+    inv_df["Reserved Meters"] = pd.to_numeric(inv_df.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0).round(2)
 
     def _bypass(row) -> bool:
         return str(row.get("Bypass Inventory", "")).strip().lower() == "true"
@@ -356,6 +352,9 @@ def update_inventory_for_order(inv_df: pd.DataFrame, old_row, new_row) -> pd.Dat
         else:
             _apply(new_row, -1.0, fallback_row=fallback)   # deduct physical stock
 
+    # Round results to 2dp
+    inv_df["Initial Meters"] = inv_df["Initial Meters"].round(2)
+    inv_df["Reserved Meters"] = inv_df["Reserved Meters"].round(2)
     return inv_df
 
 
@@ -364,7 +363,11 @@ def save_inventory_to_sheet(inventory_sheet, inv_df: pd.DataFrame) -> None:
     if inventory_sheet is None:
         return
     cols = ["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]
-    inv_save = inv_df[cols].copy().fillna("")
+    inv_save = inv_df[cols].copy()
+    # Round numeric columns before saving
+    inv_save["Initial Meters"] = pd.to_numeric(inv_save["Initial Meters"], errors="coerce").fillna(0.0).round(2)
+    inv_save["Reserved Meters"] = pd.to_numeric(inv_save["Reserved Meters"], errors="coerce").fillna(0.0).round(2)
+    inv_save = inv_save.fillna("")
     for col in inv_save.columns:
         if inv_save[col].dtype == "object":
             inv_save[col] = inv_save[col].astype(str).replace(["nan", "None", "<NA>", "NaN"], "")

@@ -339,7 +339,7 @@ def render_financial():
                     "שם התנועה": st.column_config.TextColumn("שם התנועה"),
                     "תאריך": st.column_config.DateColumn("תאריך", format="DD/MM/YYYY", width="small"),
                     "סוג": st.column_config.SelectboxColumn("סוג", options=["הוצאה", "הכנסה"], width="small"),
-                    "סכום": st.column_config.NumberColumn("סכום", format="₪%d", width="small")
+                    "סכום": st.column_config.NumberColumn("סכום", format="₪%.2f", width="small")
                 }
 
                 edited_txn = st.data_editor(txn_display.drop("id", axis=1), use_container_width=True, hide_index=True, column_config=conf, key="txn_editor")
@@ -448,7 +448,7 @@ def render_financial():
                     "id": st.column_config.TextColumn("ID", disabled=True, width="small"),
                     "שם ההוצאה": st.column_config.TextColumn("שם ההוצאה", disabled=True),
                     "תדירות": st.column_config.TextColumn("תדירות", disabled=True),
-                    "סכום": st.column_config.NumberColumn("סכום (₪)", disabled=True),
+                    "סכום": st.column_config.NumberColumn("סכום (₪)", format="₪%.2f", disabled=True),
                     "התחלה": st.column_config.DateColumn("התחלה", format="DD/MM/YYYY", disabled=True),
                     "סיום": st.column_config.DateColumn("סיום", format="DD/MM/YYYY", disabled=True)
                 }
