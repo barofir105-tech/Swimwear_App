@@ -291,4 +291,82 @@ def is_standing_order_active(order: dict, target_year: int, target_month: int) -
     return target_month == start_date.month
 
 
+# ── Inventory mutation helper ─────────────────────────────────────────────
+_PENDING_KWS = ("התקבלה", "ממתינה")
+_FABRIC_PAIRS = (("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2"))
 
+
+def update_inventory_for_order(inv_df: pd.DataFrame, old_row, new_row) -> pd.DataFrame:
+    """Mutates *inv_df* in-place using the "Revert Old / Apply New" pattern.
+
+    Parameters
+    ----------
+    inv_df   : inventory DataFrame (must contain 'Fabric Name', 'Initial Meters',
+               'Reserved Meters').
+    old_row  : Series/dict of the order **before** the change.
+               Pass ``None`` when creating a brand-new order (no revert needed).
+    new_row  : Series/dict of the order **after** the change.
+               Pass ``None`` when deleting an order (no apply needed).
+
+    Returns
+    -------
+    The same (mutated) ``inv_df`` for convenience.
+    """
+    inv_df["Initial Meters"] = pd.to_numeric(inv_df["Initial Meters"], errors="coerce").fillna(0.0)
+    inv_df["Reserved Meters"] = pd.to_numeric(inv_df.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
+
+    def _bypass(row) -> bool:
+        return str(row.get("Bypass Inventory", "")).strip().lower() == "true"
+
+    def _is_pending(row) -> bool:
+        status = str(row.get("Status", "")).strip()
+        return any(kw in status for kw in _PENDING_KWS)
+
+    def _apply(row, sign: float, fallback_row=None):
+        for f_col, u_col in _FABRIC_PAIRS:
+            if fallback_row is not None:
+                f_name = str(row.get(f_col, fallback_row.get(f_col, ""))).strip()
+                raw_usage = row.get(u_col, fallback_row.get(u_col, 0.0))
+            else:
+                f_name = str(row.get(f_col, "")).strip()
+                raw_usage = row.get(u_col, 0.0)
+            usage = pd.to_numeric(raw_usage, errors="coerce")
+            if not f_name or not (usage > 0):
+                continue
+            mask = inv_df["Fabric Name"] == f_name
+            if not mask.any():
+                continue
+            if _is_pending(row):
+                inv_df.loc[mask, "Reserved Meters"] += sign * float(usage)
+            else:
+                inv_df.loc[mask, "Initial Meters"] += sign * float(usage)
+
+    # REVERT OLD STATE
+    if old_row is not None and not _bypass(old_row):
+        if _is_pending(old_row):
+            _apply(old_row, -1.0)        # undo reservation
+        else:
+            _apply(old_row, +1.0)        # restore physical stock
+
+    # APPLY NEW STATE
+    if new_row is not None and not _bypass(new_row):
+        fallback = old_row if old_row is not None else None
+        if _is_pending(new_row):
+            _apply(new_row, +1.0, fallback_row=fallback)   # add reservation
+        else:
+            _apply(new_row, -1.0, fallback_row=fallback)   # deduct physical stock
+
+    return inv_df
+
+
+def save_inventory_to_sheet(inventory_sheet, inv_df: pd.DataFrame) -> None:
+    """Sanitizes and writes the inventory DataFrame to Google Sheets."""
+    if inventory_sheet is None:
+        return
+    cols = ["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]
+    inv_save = inv_df[cols].copy().fillna("")
+    for col in inv_save.columns:
+        if inv_save[col].dtype == "object":
+            inv_save[col] = inv_save[col].astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
+    inventory_sheet.clear()
+    inventory_sheet.update(values=[inv_save.columns.values.tolist()] + inv_save.values.tolist())

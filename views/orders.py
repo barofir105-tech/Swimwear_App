@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from utils import get_next_order_id, save_finance_data
+from utils import get_next_order_id, save_finance_data, update_inventory_for_order, save_inventory_to_sheet
 
 
 def render_orders():
@@ -342,33 +342,12 @@ def render_orders():
                 # --- עדכון מלאי (לפי הכללים החדשים) ---
                 if not bypass_inventory:
                     inv = st.session_state.inventory_df
-                    # המרה למספרים ליתר ביטחון
-                    inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
-                    inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
-                    
-                    # זיהוי סטטוס ממתין (הרשמה) מול סטטוס גזור (הפחתה פיזית)
-                    is_pending_new = any(kw in status for kw in ["התקבלה", "ממתינה"])
-                    
-                    for f_name, usage in [(sel_fabric, fabric_usage), (sel_fabric_2 if add_second_fabric else None, fabric_usage_2)]:
-                        if f_name and float(usage) > 0:
-                            mask = inv["Fabric Name"] == f_name
-                            if mask.any():
-                                if is_pending_new:
-                                    # Rule: Available drops, Box stays same => Increase Reserved
-                                    inv.loc[mask, "Reserved Meters"] += float(usage)
-                                else:
-                                    # Rule: Box drops, Available stays same => Decrease Initial (Physical)
-                                    inv.loc[mask, "Initial Meters"] -= float(usage)
-                    
+                    update_inventory_for_order(inv, old_row=None, new_row=order_row_dict)
                     st.session_state.inventory_df = inv
-                    if inventory_sheet:
-                        # שמירה לענן
-                        inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]]
-                        inventory_sheet.clear()
-                        inventory_sheet.update([inv_save.columns.values.tolist()] + inv_save.values.tolist())
+                    save_inventory_to_sheet(inventory_sheet, inv)
 
                 if orders_sheet:
-                    if len(st.session_state.orders_df) == 1: 
+                    if len(st.session_state.orders_df) == 1:
                         orders_sheet.append_row([
                             "Order ID", "Order Date", "Delivery Date", "Phone Number", "Customer Name", "Item",
                             "Top Size", "Bottom Size", "Custom Size", "Top Cut", "Bottom Cut", "Fabric", "Fabric Usage", "Fabric 2", "Fabric Usage 2",
@@ -384,17 +363,6 @@ def render_orders():
                         order_row_dict["Status"], order_row_dict["Payment Status"], order_row_dict["Supply Type"],
                         order_row_dict["Price"], order_row_dict["Payment Date"], order_row_dict["Bypass Inventory"]
                     ])
-
-                if inventory_sheet is not None:
-                    inv_save = st.session_state.inventory_df[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
-                    inv_save_clean = inv_save.fillna("")
-                    for col in inv_save_clean.columns:
-                        if inv_save_clean[col].dtype == "object":
-                            inv_save_clean[col] = inv_save_clean[col].astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
-                    inventory_sheet.clear()
-                    inventory_sheet.update(values=[inv_save_clean.columns.values.tolist()] + inv_save_clean.values.tolist())
-
-
 
                 st.toast(f"הזמנה {order_id} נוצרה ונשמרה בהצלחה!", icon="✅"); st.rerun()
         st.markdown("---")
@@ -626,56 +594,17 @@ def render_orders():
 
                                 # אתחול מלאי לפני הלולאה - מבטיח ש-inv תמיד מוגדר
                                 inv = st.session_state.inventory_df
-                                inv["Initial Meters"] = pd.to_numeric(inv["Initial Meters"], errors="coerce").fillna(0.0)
-                                inv["Reserved Meters"] = pd.to_numeric(inv.get("Reserved Meters", 0.0), errors="coerce").fillna(0.0)
 
                                 today_str = datetime.now().strftime("%d/%m/%Y")
                                 for o_id, row in save_indexed.iterrows():
                                     # --- עדכון מלאי: Revert Old, Apply New ---
                                     if o_id in orders_indexed.index:
                                         old_row = orders_indexed.loc[o_id]
-                                        new_status = str(row["Status"]).strip()
-                                        old_status = str(old_row["Status"]).strip()
-                                        is_p_new = any(kw in new_status for kw in ["התקבלה", "ממתינה"])
-                                        is_p_old = any(kw in old_status for kw in ["התקבלה", "ממתינה"])
-
-                                        old_bypass = str(old_row.get("Bypass Inventory", "")).strip().lower() == "true"
-                                        # Fallback to old_row if column is hidden
-                                        new_bypass_val = row.get("Bypass Inventory", old_row.get("Bypass Inventory", ""))
-                                        new_bypass = str(new_bypass_val).strip().lower() == "true"
-
-                                        # 1. REVERT OLD STATE
-                                        if not old_bypass:
-                                            for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
-                                                f_name = str(old_row.get(f_col, "")).strip()
-                                                usage = pd.to_numeric(old_row.get(u_col, 0.0), errors="coerce")
-                                                if f_name and usage > 0:
-                                                    mask = inv["Fabric Name"] == f_name
-                                                    if mask.any():
-                                                        if is_p_old:
-                                                            inv.loc[mask, "Reserved Meters"] -= float(usage)
-                                                        else:
-                                                            inv.loc[mask, "Initial Meters"] += float(usage)
-
-                                        # 2. APPLY NEW STATE
-                                        if not new_bypass:
-                                            for f_col, u_col in [("Fabric", "Fabric Usage"), ("Fabric 2", "Fabric Usage 2")]:
-                                                # Fallback to old_row if columns are hidden in the UI
-                                                f_name = str(row.get(f_col, old_row.get(f_col, ""))).strip()
-                                                usage = pd.to_numeric(row.get(u_col, old_row.get(u_col, 0.0)), errors="coerce")
-                                                if f_name and usage > 0:
-                                                    mask = inv["Fabric Name"] == f_name
-                                                    if mask.any():
-                                                        if is_p_new:
-                                                            inv.loc[mask, "Reserved Meters"] += float(usage)
-                                                        else:
-                                                            inv.loc[mask, "Initial Meters"] -= float(usage)
+                                        update_inventory_for_order(inv, old_row=old_row, new_row=row)
 
                                     if row["Payment Status"] == "💚":
                                         old_status = orders_indexed.loc[o_id, "Payment Status"] if o_id in orders_indexed.index else ""
                                         current_p_date = str(row.get("Payment Date", "")).strip()
-
-                                        # if just became 💚 or is 💚 but empty date, set today
                                         if (old_status != "💚" or current_p_date == "") and current_p_date == "":
                                             save_indexed.at[o_id, "Payment Date"] = today_str
                                     else:
@@ -686,14 +615,7 @@ def render_orders():
                                     row_dict["Order ID"] = o_id
 
                                 st.session_state.inventory_df = inv
-                                if inventory_sheet:
-                                    inv_save = inv[["Fabric ID", "Fabric Name", "Initial Meters", "Reserved Meters", "Image URL"]].copy()
-                                    inv_save_clean = inv_save.fillna("")
-                                    for col in inv_save_clean.columns:
-                                        if inv_save_clean[col].dtype == "object":
-                                            inv_save_clean[col] = inv_save_clean[col].astype(str).replace(["nan", "None", "<NA>", "NaN"], "")
-                                    inventory_sheet.clear()
-                                    inventory_sheet.update(values=[inv_save_clean.columns.values.tolist()] + inv_save_clean.values.tolist())
+                                save_inventory_to_sheet(inventory_sheet, inv)
 
                                 orders_indexed.update(save_indexed)
                                 orders_indexed.reset_index(inplace=True)
