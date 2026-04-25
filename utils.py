@@ -6,6 +6,12 @@ so it can be called from background threads without needing a parameter.
 """
 
 import streamlit as st
+try:
+    from streamlit.runtime.scriptrunner import add_script_run_ctx
+except ImportError:
+    # Fallback for older Streamlit versions — no-op if not available
+    def add_script_run_ctx(thread):  # type: ignore
+        return thread
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
@@ -15,6 +21,7 @@ from PIL import Image, ImageOps
 import io
 import json
 import threading
+import traceback
 import copy
 
 # ── Constants ─────────────────────────────────────────────────────────────
@@ -180,13 +187,15 @@ def _background_save_finance(data_snapshot: dict) -> None:
         sheet.clear()
         sheet.update(range_name=f"A1:A{len(chunks)}", values=[[c] for c in chunks])
     except Exception as e:
-        print(f"Background save finance failed: {e}")
+        print(f"[save_finance] Background save failed: {e}")
+        traceback.print_exc()
 
 
 def save_finance_data(data: dict) -> None:
     """Saves finance JSON to Google Sheets in a background thread (non-blocking)."""
     data_snapshot = copy.deepcopy(data)
-    thread = threading.Thread(target=_background_save_finance, args=(data_snapshot,))
+    thread = threading.Thread(target=_background_save_finance, args=(data_snapshot,), daemon=True)
+    add_script_run_ctx(thread)   # propagate Streamlit script context so st.secrets is accessible
     thread.start()
 
 
