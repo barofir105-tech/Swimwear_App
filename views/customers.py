@@ -267,6 +267,18 @@ def render_customer_card():
                         display_cust_orders["סטטוס"] = display_cust_orders["סטטוס"].astype(str) \
                             .str.replace("ממתינה לייצור", "ממתינה להכנה", regex=False)
 
+                    # רשימת שמות הבדים הזמינים ל-Selectbox
+                    fabric_names: list = (
+                        st.session_state.inventory_df["Fabric Name"]
+                        .dropna()
+                        .astype(str)
+                        .unique()
+                        .tolist()
+                    )
+                    fabric_names_sorted = sorted(fabric_names)
+                    fabric_options_primary = fabric_names_sorted                          # חובה לבד ראשי
+                    fabric_options_secondary = [""] + fabric_names_sorted                # ריק = בלי בד שני
+
                     config = {
                         "מ\"ה": st.column_config.TextColumn("מ\"ה", disabled=True, width="small"),
                         "פריט": st.column_config.TextColumn("פריט"),
@@ -280,9 +292,9 @@ def render_customer_card():
                         "תחתון": st.column_config.TextColumn("תחתון", width="small"),
                         "גזרת עליון": st.column_config.TextColumn("גזרת עליון", width="small"),
                         "גזרת תחתון": st.column_config.TextColumn("גזרת תחתון", width="small"),
-                        "בד": st.column_config.TextColumn("בד", width="small"),
+                        "בד": st.column_config.SelectboxColumn("בד", options=fabric_options_primary, width="small"),
                         "צריכת בד": st.column_config.NumberColumn("צריכת בד", format="%.2f", width="small"),
-                        "בד 2": st.column_config.TextColumn("בד 2", width="small"),
+                        "בד 2": st.column_config.SelectboxColumn("בד 2", options=fabric_options_secondary, width="small"),
                         "צריכת בד 2": st.column_config.NumberColumn("צריכת בד 2", format="%.2f", width="small")
                     }
 
@@ -326,18 +338,41 @@ def render_customer_card():
                                 orders_indexed_orig = orders_df.set_index("Order ID")
                                 save_indexed = save_orders.set_index("Order ID")
 
-                                # --- עדכון מלאי: Revert Old, Apply New ---
+                                # --- עדכון מלאי: סימולציה תחילה ואחר כך סינכרון עם הענן ---
                                 inventory_sheet = st.session_state.inventory_sheet
-                                inv = st.session_state.inventory_df
 
+                                # 1. סימולציה על עותק עמוק לא יגע במצב האמיתי
+                                inv_copy = st.session_state.inventory_df.copy(deep=True)
                                 for o_id, new_row in save_indexed.iterrows():
                                     if o_id not in orders_indexed_orig.index:
                                         continue
                                     old_row = orders_indexed_orig.loc[o_id]
-                                    update_inventory_for_order(inv, old_row=old_row, new_row=new_row)
+                                    update_inventory_for_order(inv_copy, old_row=old_row, new_row=new_row)
 
-                                st.session_state.inventory_df = inv
-                                save_inventory_to_sheet(inventory_sheet, inv)
+                                # 2. בדיקת תקינות מלאי אחרי הסימולציה
+                                inv_copy["Initial Meters"] = pd.to_numeric(inv_copy["Initial Meters"], errors="coerce").fillna(0.0)
+                                inv_copy["Reserved Meters"] = pd.to_numeric(inv_copy["Reserved Meters"], errors="coerce").fillna(0.0)
+                                shortage_mask = (
+                                    inv_copy["Initial Meters"] < 0
+                                ) | (
+                                    (inv_copy["Initial Meters"] - inv_copy["Reserved Meters"]) < 0
+                                )
+                                if shortage_mask.any():
+                                    short_fabrics = inv_copy.loc[shortage_mask, "Fabric Name"].tolist()
+                                    short_details = ", ".join(
+                                        f"{row['Fabric Name']} "
+                                        f"(זמין: {row['Initial Meters'] - row['Reserved Meters']:.2f} מ')"
+                                        for _, row in inv_copy[shortage_mask].iterrows()
+                                    )
+                                    st.error(
+                                        f"❌ אין מספיק מלאי לשינויים אלו! בדים במחסור: {short_details}. "
+                                        f"שני את הכמויות או בדוק את המלאי ונסי שנית."
+                                    )
+                                    st.stop()
+
+                                # 3. סימולציה עברה בהצלחה — ניתן לשמור
+                                st.session_state.inventory_df = inv_copy
+                                save_inventory_to_sheet(inventory_sheet, inv_copy)
 
                                 orders_indexed_orig.update(save_indexed)
                                 orders_indexed_orig.reset_index(inplace=True)
