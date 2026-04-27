@@ -133,6 +133,9 @@ def fetch_inventory_from_cloud(spreadsheet):
         else:
             if "Reserved Meters" not in df.columns:
                 df["Reserved Meters"] = 0.0
+            # Enforce string dtypes — gspread may infer numeric IDs as int64
+            df["Fabric ID"] = df["Fabric ID"].astype(str)
+            df["Fabric Name"] = df["Fabric Name"].astype(str)
             if "Image URL" in df.columns:
                 df["Image URL"] = df["Image URL"].apply(lambda x: "" if pd.isna(x) else str(x).strip())
         return df, sheet

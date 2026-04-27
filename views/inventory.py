@@ -195,6 +195,13 @@ def render_inventory():
                                 st.error("❌ שגיאה: יש כפילות בשם הבד! אנא השתמשי בשמות ייחודיים.")
                             else:
                                 with st.spinner("שומרת..."):
+                                    # Failsafe: guarantee string dtypes before .at[] assignment
+                                    st.session_state.inventory_df["Fabric ID"] = (
+                                        st.session_state.inventory_df["Fabric ID"].astype(str)
+                                    )
+                                    st.session_state.inventory_df["Fabric Name"] = (
+                                        st.session_state.inventory_df["Fabric Name"].astype(str)
+                                    )
                                     for idx, row in edited_inv.iterrows():
                                         orig_idx = int(row["_Original_Index"])
                                         st.session_state.inventory_df.at[orig_idx, "Fabric ID"] = (
