@@ -228,10 +228,10 @@ def render_inventory():
 
                                         if new_box != old_box:
                                             delta = new_box - old_box
-                                            st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = (
-                                                round(curr_initial + delta, 2)
-                                            )
-                                        elif new_avail != old_avail:
+                                            curr_initial = round(curr_initial + delta, 2)
+                                            st.session_state.inventory_df.at[orig_idx, "Initial Meters"] = curr_initial
+
+                                        if new_avail != old_avail:
                                             new_reserved = round(curr_initial - new_avail, 2)
                                             st.session_state.inventory_df.at[orig_idx, "Reserved Meters"] = (
                                                 max(new_reserved, 0.0)
