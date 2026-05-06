@@ -123,13 +123,13 @@ def render_inventory():
 
                     config = {
                         "✔": st.column_config.CheckboxColumn("בחרי", default=False, width="small"),
-                        "שם הבד/צבע": st.column_config.TextColumn("שם הבד/צבע", alignment="right"),
-                        "מק\"ט": st.column_config.TextColumn("מק\"ט", width="small", alignment="right"),
+                        "שם הבד/צבע": st.column_config.TextColumn("שם הבד/צבע"),
+                        "מק\"ט": st.column_config.TextColumn("מק\"ט", width="small"),
                         "כמות בארגז (מ')": st.column_config.NumberColumn(
-                            "בארגז (מ')", format="%.2f", width="small", alignment="right"
+                            "בארגז (מ')", format="%.2f", width="small"
                         ),
                         "כמות זמינה (מ')": st.column_config.NumberColumn(
-                            "זמין (מ')", format="%.2f", width="small", alignment="right"
+                            "זמין (מ')", format="%.2f", width="small"
                         ),
                         "תמונה": st.column_config.ImageColumn("תמונה", width="small"),
                         "_Original_Index": None,
